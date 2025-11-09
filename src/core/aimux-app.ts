@@ -439,12 +439,35 @@ export class AimuxApp {
       // Start the interceptor in background
       setImmediate(async () => {
         try {
-          const ZAIInterceptor = require('../interceptors/zai-interceptor');
-          const interceptor = new ZAIInterceptor({ debug: false });
+          console.log('[AIMUX DEBUG] Attempting to load Z.AI interceptor...');
+          // Try multiple possible paths for the interceptor to make it work from any installation
+          let interceptorPath: string;
+          try {
+            // First try relative path from compiled core directory
+            interceptorPath = join(__dirname, '..', 'interceptors', 'zai-interceptor');
+            require.resolve(interceptorPath);
+          } catch (e) {
+            try {
+              // Fallback: try from source directory
+              interceptorPath = join(__dirname, '..', '..', 'src', 'interceptors', 'zai-interceptor');
+              require.resolve(interceptorPath);
+            } catch (e2) {
+              // Last resort: try absolute path from node_modules
+              interceptorPath = require.resolve('aimux/dist/interceptors/zai-interceptor');
+            }
+          }
+          console.log(`[AIMUX DEBUG] Interceptor path: ${interceptorPath}`);
+          console.log(`[AIMUX DEBUG] Current directory: ${__dirname}`);
+
+          const ZAIInterceptor = require(interceptorPath);
+          const interceptor = new ZAIInterceptor({ debug: true });
           interceptor.start();
           console.log('[AIMUX] Z.AI interceptor started successfully');
         } catch (error) {
-          console.error(`[AIMUX] Failed to start Z.AI interceptor: ${error.message}`);
+          console.error(`[AIMUX] Failed to start Z.AI interceptor: ${(error as Error).message}`);
+          console.error(`[AIMUX DEBUG] Stack trace: ${(error as Error).stack}`);
+          console.error(`[AIMUX DEBUG] __dirname: ${__dirname}`);
+          console.error(`[AIMUX DEBUG] Current working dir: ${process.cwd()}`);
         }
       });
 

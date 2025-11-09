@@ -22,8 +22,8 @@ export declare class SyntheticClaudeApp {
         selectedThinkingModel: string;
         firstRunCompleted: boolean;
         providers?: Record<string, {
-            apiKey: string;
             name: string;
+            apiKey: string;
             enabled: boolean;
             priority: number;
             timeout: number;
@@ -36,9 +36,22 @@ export declare class SyntheticClaudeApp {
         }> | undefined;
         multiProvider?: {
             providers: {
-                'minimax-m2'?: {
-                    apiKey: string;
+                'synthetic-new'?: {
                     name: string;
+                    apiKey: string;
+                    enabled: boolean;
+                    priority: number;
+                    timeout: number;
+                    maxRetries: number;
+                    baseUrl?: string | undefined;
+                    anthropicBaseUrl?: string | undefined;
+                    modelsApiUrl?: string | undefined;
+                    models?: string[] | undefined;
+                    capabilities?: ("thinking" | "vision" | "tools")[] | undefined;
+                } | undefined;
+                'minimax-m2'?: {
+                    name: string;
+                    apiKey: string;
                     enabled: boolean;
                     priority: number;
                     timeout: number;
@@ -50,21 +63,8 @@ export declare class SyntheticClaudeApp {
                     capabilities?: ("thinking" | "vision" | "tools")[] | undefined;
                 } | undefined;
                 'z-ai'?: {
-                    apiKey: string;
                     name: string;
-                    enabled: boolean;
-                    priority: number;
-                    timeout: number;
-                    maxRetries: number;
-                    baseUrl?: string | undefined;
-                    anthropicBaseUrl?: string | undefined;
-                    modelsApiUrl?: string | undefined;
-                    models?: string[] | undefined;
-                    capabilities?: ("thinking" | "vision" | "tools")[] | undefined;
-                } | undefined;
-                'synthetic-new'?: {
                     apiKey: string;
-                    name: string;
                     enabled: boolean;
                     priority: number;
                     timeout: number;

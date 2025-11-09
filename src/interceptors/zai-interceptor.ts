@@ -12,8 +12,25 @@ const http = require('http');
 const https = require('https');
 const url = require('url');
 
+import { IncomingMessage, ServerResponse } from 'http';
+
+interface ZAIInterceptorOptions {
+  port?: number;
+  debug?: boolean;
+}
+
+interface RequestData {
+  model?: string;
+  [key: string]: any;
+}
+
 class ZAIInterceptor {
-  constructor(options = {}) {
+  private port: number;
+  private targetHost: string;
+  private targetPort: number;
+  private debug: boolean;
+
+  constructor(options: ZAIInterceptorOptions = {}) {
     this.port = options.port || 8123;
     this.targetHost = 'api.z.ai';
     this.targetPort = 443;
@@ -23,13 +40,13 @@ class ZAIInterceptor {
     console.log(`[Z.AI INTERCEPTOR] Intercepting requests to ${this.targetHost}`);
   }
 
-  log(message) {
+  private log(message: string): void {
     if (this.debug) {
       console.log(`[Z.AI INTERCEPTOR] ${message}`);
     }
   }
 
-  transformRequest(requestBody) {
+  private transformRequest(requestBody: string): string {
     try {
       const data = JSON.parse(requestBody);
 
@@ -42,14 +59,14 @@ class ZAIInterceptor {
 
       return JSON.stringify(data);
     } catch (error) {
-      this.log(`Error parsing request body: ${error.message}`);
+      this.log(`Error parsing request body: ${(error as Error).message}`);
       return requestBody;
     }
   }
 
-  createProxyRequest(req, res, requestBody) {
+  private createProxyRequest(req: IncomingMessage, res: ServerResponse, requestBody: string): void {
     // Map /anthropic/* to /api/anthropic/* for Z.AI
-    let targetPath = req.url;
+    let targetPath = req.url || '';
     if (targetPath.startsWith('/anthropic')) {
       targetPath = targetPath.replace('/anthropic', '/api/anthropic');
     }
@@ -75,7 +92,7 @@ class ZAIInterceptor {
     this.log(`Proxying ${req.method} ${targetUrl}`);
     this.log(`Transformed body: ${transformedBody.substring(0, 200)}...`);
 
-    const proxyReq = https.request(options, (proxyRes) => {
+    const proxyReq = https.request(options, (proxyRes: any) => {
       this.log(`Response status: ${proxyRes.statusCode}`);
 
       // Copy response headers
@@ -83,10 +100,10 @@ class ZAIInterceptor {
         res.setHeader(key, proxyRes.headers[key]);
       });
 
-      res.writeHead(proxyRes.statusCode);
+      res.writeHead(proxyRes.statusCode || 200);
 
       // Pipe response body
-      proxyRes.on('data', (chunk) => {
+      proxyRes.on('data', (chunk: any) => {
         res.write(chunk);
       });
 
@@ -96,10 +113,10 @@ class ZAIInterceptor {
       });
     });
 
-    proxyReq.on('error', (error) => {
-      this.log(`Proxy request error: ${error.message}`);
+    proxyReq.on('error', (error: any) => {
+      this.log(`Proxy request error: ${(error as Error).message}`);
       res.writeHead(502);
-      res.end(JSON.stringify({ error: 'Bad Gateway', message: error.message }));
+      res.end(JSON.stringify({ error: 'Bad Gateway', message: (error as Error).message }));
     });
 
     // Send the transformed request
@@ -107,25 +124,25 @@ class ZAIInterceptor {
     proxyReq.end();
   }
 
-  start() {
-    const server = http.createServer((req, res) => {
+  start(): void {
+    const server = http.createServer((req: any, res: any) => {
       let requestBody = '';
 
-      req.on('data', (chunk) => {
+      req.on('data', (chunk: any) => {
         requestBody += chunk.toString();
       });
 
       req.on('end', () => {
-        this.log(`Received ${req.method} ${req.url}`);
-        this.log(`Request body: ${requestBody.substring(0, 200)}...`);
-
         // Only intercept requests to Z.AI API
-        console.log(`[Z.AI INTERCEPTOR] Request URL: ${req.url}`);
-        if (req.url.includes('/messages') || req.url.includes('/anthropic')) {
+        const requestUrl = req.url || '';
+        this.log(`Received ${req.method} ${requestUrl}`);
+        this.log(`Request body: ${requestBody.substring(0, 200)}...`);
+        console.log(`[Z.AI INTERCEPTOR] Request URL: ${requestUrl}`);
+        if (requestUrl.includes('/messages') || requestUrl.includes('/anthropic')) {
           this.createProxyRequest(req, res, requestBody);
         } else {
           // Return 404 for non-API requests
-          console.log(`[Z.AI INTERCEPTOR] Rejecting non-API request: ${req.url}`);
+          console.log(`[Z.AI INTERCEPTOR] Rejecting non-API request: ${requestUrl}`);
           res.writeHead(404);
           res.end('Not Found');
         }
@@ -138,8 +155,8 @@ class ZAIInterceptor {
       console.log(`[Z.AI INTERCEPTOR] 🎯 Configure aimux to use: http://localhost:${this.port}/anthropic`);
     });
 
-    server.on('error', (error) => {
-      console.error(`[Z.AI INTERCEPTOR] Server error: ${error.message}`);
+    server.on('error', (error: any) => {
+      console.error(`[Z.AI INTERCEPTOR] Server error: ${(error as Error).message}`);
     });
   }
 }

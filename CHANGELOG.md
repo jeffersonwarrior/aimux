@@ -2,6 +2,29 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.0-rc7] - 2025-11-09
+
+### Fixed
+- **Critical Bug**: Z.AI interceptor module resolution error `Cannot find module '../interceptors/zai-interceptor'`
+- **Enhancement**: Implemented robust path resolution with multiple fallback strategies to make aimux installable from any location
+- **Reliability**: Z.AI interceptor now works correctly in global, local, and development installations
+
+### Technical Details
+- Added multi-path resolution strategy that tries:
+  - Relative path from compiled core directory (`../interceptors/zai-interceptor`)
+  - Source directory fallback (`../../src/interceptors/zai-interceptor`)
+  - Node_modules absolute path fallback (`require.resolve('aimux/dist/interceptors/zai-interceptor')`)
+- Enhanced debugging output showing resolved interceptor path
+- Z.AI proxy server starts successfully on localhost:8123
+
+## [2.0.0-rc6] - 2025-11-08
+
+### Added
+- Z.AI HTTP Request Interceptor for model transformation fixes
+- Automatic model format conversion: `hf:zai-org/GLM-4.6` → `GLM-4.6`
+- Proxy server implementation for seamless Z.AI integration
+- Enhanced error handling and debugging output
+
 ## [2.0.0-rc2] - 2025-01-08
 
 ### Added
