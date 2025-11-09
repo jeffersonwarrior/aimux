@@ -79,13 +79,16 @@ class ClaudeLauncher {
         env.ANTHROPIC_DEFAULT_MODEL = model;
         // Special handling for Z.AI: Use model format that works with Z.AI API
         if (options.env?.ANTHROPIC_BASE_URL?.includes('api.z.ai')) {
-            // Set to GLM-4.6 format - Claude Code will transform to hf:zai-org/GLM-4.6
-            // But we'll intercept and fix this transformation
+            // Claude Code transforms GLM-4.6 to hf:zai-org/GLM-4.6, so we need to override this
+            // Force Claude Code to use the exact model format Z.AI expects
             env.ANTHROPIC_DEFAULT_OPUS_MODEL = 'GLM-4.6';
             env.ANTHROPIC_DEFAULT_SONNET_MODEL = 'GLM-4.6';
             env.ANTHROPIC_DEFAULT_HAIKU_MODEL = 'GLM-4.6';
             env.ANTHROPIC_DEFAULT_HF_MODEL = 'GLM-4.6';
             env.ANTHROPIC_DEFAULT_MODEL = 'GLM-4.6';
+            // Override Claude Code's model transformation by setting environment variables
+            env.CLAUDE_MODEL = 'GLM-4.6';
+            env.MODEL = 'GLM-4.6';
         }
         // Set Claude Code subagent model
         // For Z.AI, use their native model to avoid confusion

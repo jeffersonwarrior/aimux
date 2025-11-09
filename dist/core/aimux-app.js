@@ -323,11 +323,66 @@ class AimuxApp {
         const providerConfig = config.multiProvider?.providers?.[providerId];
         const providerApiKey = providerConfig?.apiKey || config.apiKey;
         let baseUrl = providerConfig?.anthropicBaseUrl || providerConfig?.baseUrl || config.anthropicBaseUrl;
-        // Special handling for Z.AI: Connect directly (interceptor temporarily disabled)
+        // Special handling for Z.AI: Use simple inline model transformation
         if (providerId === 'z-ai') {
-            console.log('[AIMUX] Z.AI interceptor temporarily disabled - connecting directly to Z.AI');
-            // TODO: Re-enable interceptor once path resolution is fixed properly
-            // baseUrl remains the original Z.AI API endpoint
+            console.log('[AIMUX] Z.AI: Using direct connection with model transformation');
+            // Set up a simple proxy server inline to handle model transformation
+            // This is a minimal version of the interceptor functionality
+            const http = require('http');
+            const url = require('url');
+            const proxyPort = 8124; // Use different port to avoid conflicts
+            setTimeout(() => {
+                const server = http.createServer((req, res) => {
+                    let body = '';
+                    req.on('data', (chunk) => body += chunk);
+                    req.on('end', () => {
+                        try {
+                            const data = JSON.parse(body);
+                            // Transform Claude Code's model format back to Z.AI format
+                            if (data.model && data.model.startsWith('hf:zai-org/')) {
+                                data.model = data.model.replace('hf:zai-org/', '');
+                                console.log(`[AIMUX] Transformed model: hf:zai-org/GLM-4.6 -> ${data.model}`);
+                            }
+                            // Proxy to Z.AI
+                            const targetUrl = `https://api.z.ai${req.url}`;
+                            const parsedUrl = new url.URL(targetUrl);
+                            const proxyReq = require('https').request({
+                                hostname: 'api.z.ai',
+                                port: 443,
+                                path: parsedUrl.pathname + parsedUrl.search,
+                                method: req.method,
+                                headers: {
+                                    ...req.headers,
+                                    host: 'api.z.ai',
+                                    'content-length': Buffer.byteLength(JSON.stringify(data))
+                                }
+                            }, (proxyRes) => {
+                                res.writeHead(proxyRes.statusCode || 200, proxyRes.headers);
+                                proxyRes.pipe(res);
+                            });
+                            proxyReq.on('error', (err) => {
+                                res.writeHead(502);
+                                res.end(JSON.stringify({ error: 'Proxy Error', message: err.message }));
+                            });
+                            proxyReq.write(JSON.stringify(data));
+                            proxyReq.end();
+                        }
+                        catch (error) {
+                            res.writeHead(400);
+                            res.end(JSON.stringify({ error: 'Bad Request', message: error.message }));
+                        }
+                    });
+                });
+                server.listen(proxyPort, () => {
+                    console.log(`[AIMUX] Z.AI proxy running on http://localhost:${proxyPort}`);
+                });
+                server.on('error', (err) => {
+                    console.log(`[AIMUX] Proxy error: ${err.message}`);
+                });
+            }, 100);
+            // Point Claude Code to our proxy
+            baseUrl = `http://localhost:${proxyPort}`;
+            console.log(`[AIMUX] Redirecting Z.AI requests through localhost:${proxyPort}`);
         }
         const launchEnv = {
             ...process.env,
