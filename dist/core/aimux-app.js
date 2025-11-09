@@ -349,18 +349,17 @@ class AimuxApp {
     async autoConfigureModelsForProvider(providerId) {
         const config = this.configManager.config;
         const providerInfo = this.getProviderInfo(providerId);
-        // Only auto-configure if no models are currently selected
-        if (!config.selectedModel && !config.selectedThinkingModel) {
-            const defaultModels = this.getDefaultModelsForProvider(providerId);
-            if (defaultModels.default) {
-                config.selectedModel = defaultModels.default;
-            }
-            if (defaultModels.thinking) {
-                config.selectedThinkingModel = defaultModels.thinking;
-            }
-            // Save the updated configuration
-            await this.configManager.saveConfig();
+        // Always auto-configure models for the selected provider
+        // This ensures correct provider-specific models are used (e.g., GLM-4.6 for Z.AI)
+        const defaultModels = this.getDefaultModelsForProvider(providerId);
+        if (defaultModels.default) {
+            config.selectedModel = defaultModels.default;
         }
+        if (defaultModels.thinking) {
+            config.selectedThinkingModel = defaultModels.thinking;
+        }
+        // Save the updated configuration
+        await this.configManager.saveConfig();
     }
     /**
      * Get default models for a specific provider
