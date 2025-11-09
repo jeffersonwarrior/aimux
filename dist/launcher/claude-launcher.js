@@ -68,19 +68,19 @@ class ClaudeLauncher {
         env.ANTHROPIC_DEFAULT_HAIKU_MODEL = model;
         env.ANTHROPIC_DEFAULT_HF_MODEL = model;
         env.ANTHROPIC_DEFAULT_MODEL = model;
-        // Special handling for Z.AI: Use native GLM model names per Z.AI documentation
+        // Special handling for Z.AI: Use Z.AI-specific model identifiers
         if (options.env?.ANTHROPIC_BASE_URL?.includes('api.z.ai')) {
-            // Z.AI native models: glm-4.6 for main tasks, glm-4.5-air for lighter tasks
-            env.ANTHROPIC_DEFAULT_OPUS_MODEL = 'glm-4.6';
-            env.ANTHROPIC_DEFAULT_SONNET_MODEL = 'glm-4.6';
-            env.ANTHROPIC_DEFAULT_HAIKU_MODEL = 'glm-4.5-air';
-            env.ANTHROPIC_DEFAULT_HF_MODEL = 'glm-4.6';
-            env.ANTHROPIC_DEFAULT_MODEL = 'glm-4.6';
+            // Z.AI models: zai-glm-46 for main tasks, zai-glm-45-air for lighter tasks
+            env.ANTHROPIC_DEFAULT_OPUS_MODEL = 'zai-glm-46';
+            env.ANTHROPIC_DEFAULT_SONNET_MODEL = 'zai-glm-46';
+            env.ANTHROPIC_DEFAULT_HAIKU_MODEL = 'zai-glm-45-air';
+            env.ANTHROPIC_DEFAULT_HF_MODEL = 'zai-glm-46';
+            env.ANTHROPIC_DEFAULT_MODEL = 'zai-glm-46';
         }
         // Set Claude Code subagent model
         // For Z.AI, use their native model to avoid confusion
         if (options.env?.ANTHROPIC_BASE_URL?.includes('api.z.ai')) {
-            env.CLAUDE_CODE_SUBAGENT_MODEL = 'glm-4.6';
+            env.CLAUDE_CODE_SUBAGENT_MODEL = 'zai-glm-46';
         }
         else {
             env.CLAUDE_CODE_SUBAGENT_MODEL = model;
