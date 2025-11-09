@@ -343,8 +343,12 @@ class AimuxApp {
                                 data.model = data.model.replace('hf:zai-org/', '');
                                 console.log(`[AIMUX] Transformed model: hf:zai-org/GLM-4.6 -> ${data.model}`);
                             }
-                            // Proxy to Z.AI
-                            const targetUrl = `https://api.z.ai${req.url}`;
+                            // Map Claude Code's /v1/* to Z.AI's /api/v1/* format
+                            let targetPath = req.url || '';
+                            if (targetPath.startsWith('/v1/')) {
+                                targetPath = '/api' + targetPath;
+                            }
+                            const targetUrl = `https://api.z.ai${targetPath}`;
                             const parsedUrl = new url.URL(targetUrl);
                             const proxyReq = require('https').request({
                                 hostname: 'api.z.ai',
