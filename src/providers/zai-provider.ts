@@ -220,8 +220,17 @@ export class ZAIProvider extends BaseProvider {
       // Transform the request to Z.AI format
       const zaiRequest = this.transformRequest(request);
 
+      const requestUrl = `${this.config?.baseUrl || this.DEFAULT_BASE_URL}/messages`;
+      console.log(`[Z.AI DEBUG] Request URL: ${requestUrl}`);
+      console.log(`[Z.AI DEBUG] Request headers:`, {
+        'Authorization': `Bearer ${this.config?.apiKey ? this.config.apiKey.substring(0, 10) + '...' : 'MISSING'}`,
+        'Content-Type': 'application/json'
+      });
+      console.log(`[Z.AI DEBUG] Request body model: ${zaiRequest.model}`);
+      console.log(`[Z.AI DEBUG] Request body:`, JSON.stringify(zaiRequest, null, 2));
+
       const response: AxiosResponse = await this.httpClient.post(
-        `${this.config?.baseUrl || this.DEFAULT_BASE_URL}/messages`,
+        requestUrl,
         zaiRequest,
         {
           timeout: this.config?.timeout || 120000, // 2 minutes default
@@ -230,6 +239,10 @@ export class ZAIProvider extends BaseProvider {
             : undefined,
         }
       );
+
+      console.log(`[Z.AI DEBUG] Response status: ${response.status}`);
+      console.log(`[Z.AI DEBUG] Response headers:`, response.headers);
+      console.log(`[Z.AI DEBUG] Response data:`, JSON.stringify(response.data, null, 2));
 
       // Update rate limiting
       const estimatedTokens = this.estimateTokens(request);
@@ -365,8 +378,15 @@ export class ZAIProvider extends BaseProvider {
    * Transform standard AI request to Z.AI Anthropic-compatible format
    */
   protected transformRequest(request: AIRequest): any {
+    const finalModel = request.model.replace('zai-', '') || 'glm-4.6'; // Default to glm-4.6
+
+    // Debug logging
+    console.log(`[Z.AI DEBUG] Original model: ${request.model}`);
+    console.log(`[Z.AI DEBUG] Final model being sent to Z.AI: ${finalModel}`);
+    console.log(`[Z.AI DEBUG] Request messages count: ${request.messages.length}`);
+
     const zaiRequest: any = {
-      model: request.model.replace('zai-', '') || 'glm-4.6', // Default to glm-4.6
+      model: finalModel,
       messages: request.messages.map(msg => {
         const transformed: any = {
           role: msg.role,

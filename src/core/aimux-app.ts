@@ -488,8 +488,8 @@ export class AimuxApp {
         thinking: 'minimax-claude-3-sonnet-20240229'
       },
       'z-ai': {
-        default: 'zai-glm-46',
-        thinking: 'zai-glm-46'
+        default: 'GLM-4.6',
+        thinking: 'GLM-4.6'
       },
       'synthetic-new': {
         default: 'claude-3-haiku-20240307',

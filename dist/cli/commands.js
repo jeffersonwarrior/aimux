@@ -54,7 +54,7 @@ function createProgram() {
         .passThroughOptions(true);
     // Explicit provider commands
     const launchWithProvider = async (providerId, options) => {
-        const app = new aimux_app_1.AimuxApp({ type: 'bridge' }); // Bridge mode for direct provider access
+        const app = new aimux_app_1.AimuxApp({ type: 'routing' }); // Routing mode to go through our providers
         const additionalArgs = [];
         // Get remaining args for Claude Code
         const rawArgs = process.argv.slice(2);
@@ -158,7 +158,7 @@ function createProgram() {
         .option('-q, --quiet', 'Suppress non-error output')
         .allowUnknownOption(true)
         .action(async (options) => {
-        const app = new aimux_app_1.AimuxApp({ type: 'bridge' }); // Bridge mode for direct provider access
+        const app = new aimux_app_1.AimuxApp({ type: 'routing' }); // Routing mode to go through our providers
         const additionalArgs = [];
         // Get remaining args for Claude Code
         const rawArgs = process.argv.slice(2);

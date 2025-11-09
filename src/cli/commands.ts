@@ -24,7 +24,7 @@ export function createProgram(): Command {
 
   // Explicit provider commands
   const launchWithProvider = async (providerId: string, options: any) => {
-    const app = new AimuxApp({ type: 'bridge' }); // Bridge mode for direct provider access
+    const app = new AimuxApp({ type: 'routing' }); // Routing mode to go through our providers
     const additionalArgs: string[] = [];
 
     // Get remaining args for Claude Code
@@ -143,7 +143,7 @@ export function createProgram(): Command {
     .option('-q, --quiet', 'Suppress non-error output')
     .allowUnknownOption(true)
     .action(async options => {
-      const app = new AimuxApp({ type: 'bridge' }); // Bridge mode for direct provider access
+      const app = new AimuxApp({ type: 'routing' }); // Routing mode to go through our providers
       const additionalArgs: string[] = [];
 
       // Get remaining args for Claude Code
