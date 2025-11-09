@@ -442,18 +442,51 @@ export class AimuxApp {
           console.log('[AIMUX DEBUG] Attempting to load Z.AI interceptor...');
           // Try multiple possible paths for the interceptor to make it work from any installation
           let interceptorPath: string;
+
+          // First try relative path from compiled core directory
           try {
-            // First try relative path from compiled core directory
             interceptorPath = join(__dirname, '..', 'interceptors', 'zai-interceptor');
             require.resolve(interceptorPath);
+            console.log(`[AIMUX DEBUG] Relative path resolved: ${interceptorPath}`);
           } catch (e) {
+            console.log(`[AIMUX DEBUG] Relative path failed: ${e}`);
+
+            // Fallback: try from source directory
             try {
-              // Fallback: try from source directory
               interceptorPath = join(__dirname, '..', '..', 'src', 'interceptors', 'zai-interceptor');
               require.resolve(interceptorPath);
+              console.log(`[AIMUX DEBUG] Source path resolved: ${interceptorPath}`);
             } catch (e2) {
-              // Last resort: try absolute path from node_modules
-              interceptorPath = require.resolve('aimux/dist/interceptors/zai-interceptor');
+              console.log(`[AIMUX DEBUG] Source path failed: ${e2}`);
+
+              // Last resort: try to find the global installation using the current running script path
+              try {
+                const fs = require('fs');
+                const path = require('path');
+
+                // Get the path of the current running aimux executable
+                const runningPath = process.argv[1];
+                const runningDir = path.dirname(runningPath);
+
+                // Try to find the interceptors directory from the running path
+                interceptorPath = path.join(runningDir, '..', 'interceptors', 'zai-interceptor');
+
+                if (fs.existsSync(interceptorPath + '.js')) {
+                  console.log(`[AIMUX DEBUG] Running path resolved: ${interceptorPath}`);
+                } else {
+                  // Final fallback: construct from the package.json location if possible
+                  try {
+                    const packageJsonPath = require.resolve('aimux/package.json');
+                    const packageDir = path.dirname(packageJsonPath);
+                    interceptorPath = path.join(packageDir, 'dist', 'interceptors', 'zai-interceptor');
+                    console.log(`[AIMUX DEBUG] Package.json path resolved: ${interceptorPath}`);
+                  } catch (e3) {
+                    throw new Error(`Unable to locate Z.AI interceptor. Tried multiple paths:\n1. ${join(__dirname, '..', 'interceptors', 'zai-interceptor')}\n2. ${join(__dirname, '..', '..', 'src', 'interceptors', 'zai-interceptor')}\n3. ${interceptorPath}\n\nOriginal error: ${e2}`);
+                  }
+                }
+              } catch (e4) {
+                throw new Error(`Unable to locate Z.AI interceptor. Original error: ${(e2 as Error).message}`);
+              }
             }
           }
           console.log(`[AIMUX DEBUG] Interceptor path: ${interceptorPath}`);
