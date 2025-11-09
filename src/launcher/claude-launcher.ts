@@ -91,14 +91,15 @@ export class ClaudeLauncher {
     env.ANTHROPIC_DEFAULT_HF_MODEL = model;
     env.ANTHROPIC_DEFAULT_MODEL = model;
 
-    // Special handling for Z.AI: Use Claude model names (Z.AI handles mapping internally)
+    // Special handling for Z.AI: Use working Claude model names
     if (options.env?.ANTHROPIC_BASE_URL?.includes('api.z.ai')) {
-      // Don't convert model name - Z.AI expects standard Claude model names
-      env.ANTHROPIC_DEFAULT_OPUS_MODEL = model;
-      env.ANTHROPIC_DEFAULT_SONNET_MODEL = model;
-      env.ANTHROPIC_DEFAULT_HAIKU_MODEL = model;
-      env.ANTHROPIC_DEFAULT_HF_MODEL = model;
-      env.ANTHROPIC_DEFAULT_MODEL = model;
+      // For Z.AI, use Sonnet model which we know works (deprecation warning expected)
+      const workingModel = 'claude-3-sonnet-20240229'; // This works with Z.AI
+      env.ANTHROPIC_DEFAULT_OPUS_MODEL = workingModel;
+      env.ANTHROPIC_DEFAULT_SONNET_MODEL = workingModel;
+      env.ANTHROPIC_DEFAULT_HAIKU_MODEL = workingModel;
+      env.ANTHROPIC_DEFAULT_HF_MODEL = workingModel;
+      env.ANTHROPIC_DEFAULT_MODEL = workingModel;
     }
 
     // Set Claude Code subagent model

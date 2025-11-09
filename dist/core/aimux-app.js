@@ -377,7 +377,7 @@ class AimuxApp {
             },
             'synthetic-new': {
                 default: 'claude-3-haiku-20240307',
-                thinking: 'claude-3-sonnet-20240229'
+                thinking: 'claude-3-5-sonnet-20241022'
             }
         };
         return models[providerId] || models['synthetic-new'];

@@ -56,12 +56,10 @@ class ClaudeLauncher {
         if (hasProviderUrl) {
             // If we already have a provider URL (from aimux app), use it
             env.ANTHROPIC_BASE_URL = hasProviderUrl;
-            console.log(`[DEBUG] Using provider URL: ${env.ANTHROPIC_BASE_URL}`);
         }
         else {
             // Fallback to synthetic.new only if no provider URL is configured
             env.ANTHROPIC_BASE_URL = 'https://api.synthetic.new/anthropic';
-            console.log(`[DEBUG] Using fallback URL: ${env.ANTHROPIC_BASE_URL}`);
         }
         // Set all the model environment variables to the correct model identifier
         // This ensures Claude Code uses the correct model regardless of which tier it requests
@@ -70,15 +68,15 @@ class ClaudeLauncher {
         env.ANTHROPIC_DEFAULT_HAIKU_MODEL = model;
         env.ANTHROPIC_DEFAULT_HF_MODEL = model;
         env.ANTHROPIC_DEFAULT_MODEL = model;
-        // Special handling for Z.AI: Use Claude model names (Z.AI handles mapping internally)
+        // Special handling for Z.AI: Use working Claude model names
         if (options.env?.ANTHROPIC_BASE_URL?.includes('api.z.ai')) {
-            console.log(`[DEBUG] Using Claude model name for Z.AI: ${model}`);
-            // Don't convert model name - Z.AI expects standard Claude model names
-            env.ANTHROPIC_DEFAULT_OPUS_MODEL = model;
-            env.ANTHROPIC_DEFAULT_SONNET_MODEL = model;
-            env.ANTHROPIC_DEFAULT_HAIKU_MODEL = model;
-            env.ANTHROPIC_DEFAULT_HF_MODEL = model;
-            env.ANTHROPIC_DEFAULT_MODEL = model;
+            // For Z.AI, use Sonnet model which we know works (deprecation warning expected)
+            const workingModel = 'claude-3-sonnet-20240229'; // This works with Z.AI
+            env.ANTHROPIC_DEFAULT_OPUS_MODEL = workingModel;
+            env.ANTHROPIC_DEFAULT_SONNET_MODEL = workingModel;
+            env.ANTHROPIC_DEFAULT_HAIKU_MODEL = workingModel;
+            env.ANTHROPIC_DEFAULT_HF_MODEL = workingModel;
+            env.ANTHROPIC_DEFAULT_MODEL = workingModel;
         }
         // Set Claude Code subagent model
         env.CLAUDE_CODE_SUBAGENT_MODEL = model;
