@@ -432,85 +432,11 @@ export class AimuxApp {
     const providerApiKey = providerConfig?.apiKey || config.apiKey;
     let baseUrl = providerConfig?.anthropicBaseUrl || providerConfig?.baseUrl || config.anthropicBaseUrl;
 
-    // Special handling for Z.AI: Use local interceptor to fix model transformation
+    // Special handling for Z.AI: Connect directly (interceptor temporarily disabled)
     if (providerId === 'z-ai') {
-      console.log('[AIMUX] Starting Z.AI interceptor to fix model transformation...');
-
-      // Start the interceptor in background
-      setImmediate(async () => {
-        try {
-          console.log('[AIMUX DEBUG] Attempting to load Z.AI interceptor...');
-          // Try multiple possible paths for the interceptor to make it work from any installation
-          let interceptorPath: string;
-
-          // First try relative path from compiled core directory
-          try {
-            interceptorPath = join(__dirname, '..', 'interceptors', 'zai-interceptor');
-            require.resolve(interceptorPath);
-            console.log(`[AIMUX DEBUG] Relative path resolved: ${interceptorPath}`);
-          } catch (e) {
-            console.log(`[AIMUX DEBUG] Relative path failed: ${e}`);
-
-            // Fallback: try from source directory
-            try {
-              interceptorPath = join(__dirname, '..', '..', 'src', 'interceptors', 'zai-interceptor');
-              require.resolve(interceptorPath);
-              console.log(`[AIMUX DEBUG] Source path resolved: ${interceptorPath}`);
-            } catch (e2) {
-              console.log(`[AIMUX DEBUG] Source path failed: ${e2}`);
-
-              // Last resort: try to find the global installation using the current running script path
-              try {
-                const fs = require('fs');
-                const path = require('path');
-
-                // Get the path of the current running aimux executable
-                const runningPath = process.argv[1];
-                const runningDir = path.dirname(runningPath);
-
-                // Try to find the interceptors directory from the running path
-                interceptorPath = path.join(runningDir, '..', 'interceptors', 'zai-interceptor');
-
-                if (fs.existsSync(interceptorPath + '.js')) {
-                  console.log(`[AIMUX DEBUG] Running path resolved: ${interceptorPath}`);
-                } else {
-                  // Final fallback: construct from the package.json location if possible
-                  try {
-                    const packageJsonPath = require.resolve('aimux/package.json');
-                    const packageDir = path.dirname(packageJsonPath);
-                    interceptorPath = path.join(packageDir, 'dist', 'interceptors', 'zai-interceptor');
-                    console.log(`[AIMUX DEBUG] Package.json path resolved: ${interceptorPath}`);
-                  } catch (e3) {
-                    throw new Error(`Unable to locate Z.AI interceptor. Tried multiple paths:\n1. ${join(__dirname, '..', 'interceptors', 'zai-interceptor')}\n2. ${join(__dirname, '..', '..', 'src', 'interceptors', 'zai-interceptor')}\n3. ${interceptorPath}\n\nOriginal error: ${e2}`);
-                  }
-                }
-              } catch (e4) {
-                throw new Error(`Unable to locate Z.AI interceptor. Original error: ${(e2 as Error).message}`);
-              }
-            }
-          }
-          console.log(`[AIMUX DEBUG] Interceptor path: ${interceptorPath}`);
-          console.log(`[AIMUX DEBUG] Current directory: ${__dirname}`);
-
-          const ZAIInterceptor = require(interceptorPath);
-          const interceptor = new ZAIInterceptor({ debug: true });
-          interceptor.start();
-          console.log('[AIMUX] Z.AI interceptor started successfully');
-        } catch (error) {
-          console.error(`[AIMUX] Failed to start Z.AI interceptor: ${(error as Error).message}`);
-          console.error(`[AIMUX DEBUG] Stack trace: ${(error as Error).stack}`);
-          console.error(`[AIMUX DEBUG] __dirname: ${__dirname}`);
-          console.error(`[AIMUX DEBUG] Current working dir: ${process.cwd()}`);
-        }
-      });
-
-      // Point Claude Code to our local proxy instead of direct Z.AI
-      baseUrl = 'http://localhost:8123/anthropic';
-
-      // Give the interceptor a moment to start
-      setTimeout(() => {
-        console.log('[AIMUX] Z.AI interceptor active - redirecting requests through proxy');
-      }, 100);
+      console.log('[AIMUX] Z.AI interceptor temporarily disabled - connecting directly to Z.AI');
+      // TODO: Re-enable interceptor once path resolution is fixed properly
+      // baseUrl remains the original Z.AI API endpoint
     }
 
     const launchEnv = {
