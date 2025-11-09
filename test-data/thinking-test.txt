@@ -1,0 +1,12 @@
+This is a thinking capability test for the aimux multi-provider system.
+
+Please solve this step-by-step problem:
+
+Problem: Calculate the total cost of ordering 3 pizzas where:
+- Pizza 1 costs $12.50 with 20% tax
+- Pizza 2 costs $15.75 with 20% tax
+- Pizza 3 costs $18.25 with 20% tax
+- Delivery fee is $5.00
+- Tip is 15% of the subtotal (pizzas + delivery)
+
+Think through this step by step and show all your calculations. This will test whether the thinking capabilities are working correctly through the aimux router.

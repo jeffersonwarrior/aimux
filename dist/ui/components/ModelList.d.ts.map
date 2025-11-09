@@ -1,0 +1,1 @@
+{"version":3,"file":"ModelList.d.ts","sourceRoot":"","sources":["../../../src/ui/components/ModelList.tsx"],"names":[],"mappings":"AAAA,OAAO,KAAK,MAAM,OAAO,CAAC;AAE1B,OAAO,EAAE,aAAa,EAAE,MAAM,cAAc,CAAC;AAE7C,UAAU,cAAc;IACtB,MAAM,EAAE,aAAa,EAAE,CAAC;IACxB,aAAa,CAAC,EAAE,MAAM,CAAC;IACvB,cAAc,CAAC,EAAE,OAAO,CAAC;CAC1B;AAED,eAAO,MAAM,SAAS,EAAE,KAAK,CAAC,EAAE,CAAC,cAAc,CAuD9C,CAAC"}

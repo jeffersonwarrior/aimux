@@ -1,0 +1,41 @@
+FROM node:18-alpine
+
+# Install curl and other utilities
+RUN apk add --no-cache curl nano
+
+# Set working directory
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies without prepare script
+RUN npm ci --ignore-scripts
+
+# Copy source code
+COPY . .
+
+# Build the project
+RUN npm run build
+
+# Install aimux globally inside container
+RUN npm link
+
+# Create test script
+RUN cat > test-zai.sh << 'EOF'
+#!/bin/sh
+
+echo "=== Interactive Z.AI Test ==="
+echo "Starting aimux z-ai dangerous..."
+echo "You should see the bridge mode message and TUI"
+echo "Type 'hi' when the TUI appears to test Z.AI integration"
+echo
+
+# Set up shell for interactive session
+exec /bin/sh
+EOF
+
+RUN chmod +x test-zai.sh
+
+# Use shell for interactive session
+CMD ["/bin/sh"]

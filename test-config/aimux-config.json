@@ -1,0 +1,99 @@
+{
+  "version": "2.0.0",
+  "defaultProvider": "minimax-m2",
+  "router": {
+    "port": 8080,
+    "host": "0.0.0.0",
+    "logLevel": "debug",
+    "enableHealthCheck": true,
+    "healthCheckInterval": 30000,
+    "timeout": 30000
+  },
+  "providers": {
+    "minimax-m2": {
+      "name": "Minimax M2",
+      "enabled": true,
+      "apiKey": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJHcm91cE5hbWUiOiJKZWZmZXJzb24gTnVubiIsIlVzZXJOYW1lIjoiSmVmZmVyc29uIE51bm4iLCJBY2NvdW50IjoiIiwiU3ViamVjdElEIjoiMTk1NjQ2OTYxODk5NDMyMzcwMSIsIlBob25lIjoiIiwiR3JvdXBJRCI6IjE5NTY0Njk1NTA0NjM1ODY1NTAiLCJQYWdlTmFtZSI6IiIsIk1haWwiOiJqZWZmZXJzb25AaGVpbWRYWxsc3RyYXRlZ3kuY29tIiwiQ3JlYXRlVGltZSI6IjIwMjUtMTEtMDggMjM6NDQ6MzciLCJUb2tlblR5cGUiOjEsImZzc2ciOiJtaW5pbWF4In0.YFwc4LYMdBq-v8iXQriTyJJq1Smhwj4uCxK1wH1M9ulgwLgEUsfnGievBsaLjBBMCVMOeSnBBdf3T1btvL4Y5XgdrB9aecHixja75kczU_nC70TA-RvIFL3bI8B2gbb0aWhi1Iue1nysum25ux4vn_9h14LPJwEr3Oy7d0qZTEiUkiclvOBu97iKeoqrpG4Og7x69C6tZbiZaSMO3wyHVrylw-KNj5wa1F-H95_oMPH0ochAF-VWnMZgQnZitMgcHm66A8qEuKnX-r-iHsxx_4aXXgewSMmTySbiVryr6weVkUHgFiBdOLj721PRjv2IQb8Md5IHQu7kyfqQwg2Dnw",
+      "baseUrl": "https://api.minimax.chat",
+      "models": [
+        {
+          "id": "abab6.5s-chat",
+          "name": "Minimax ABAB6.5s",
+          "type": "chat",
+          "capabilities": ["text", "thinking"],
+          "maxTokens": 24576,
+          "supportsStreaming": true,
+          "costPerToken": {
+            "input": 0.00001,
+            "output": 0.00002
+          }
+        },
+        {
+          "id": "abab6.5-chat",
+          "name": "Minimax ABAB6.5",
+          "type": "chat",
+          "capabilities": ["text", "thinking"],
+          "maxTokens": 24576,
+          "supportsStreaming": true,
+          "costPerToken": {
+            "input": 0.000008,
+            "output": 0.000016
+          }
+        },
+        {
+          "id": "abab6-chat",
+          "name": "Minimax ABAB6",
+          "type": "chat",
+          "capabilities": ["text"],
+          "maxTokens": 8192,
+          "supportsStreaming": true,
+          "costPerToken": {
+            "input": 0.000005,
+            "output": 0.00001
+          }
+        }
+      ],
+      "capabilities": {
+        "thinking": true,
+        "vision": false,
+        "tools": true,
+        "streaming": true
+      },
+      "rateLimit": {
+        "requestsPerMinute": 60,
+        "tokensPerMinute": 100000
+      }
+    }
+  },
+  "routing": {
+    "strategy": "capability-based",
+    "failoverEnabled": true,
+    "fallbackProvider": null,
+    "costOptimization": {
+      "enabled": true,
+      "priority": "medium"
+    },
+    "performanceOptimization": {
+      "enabled": true,
+      "priority": "high"
+    }
+  },
+  "logging": {
+    "level": "debug",
+    "format": "json",
+    "file": "/app/logs/aimux.log",
+    "maxSize": "10MB",
+    "maxFiles": 5
+  },
+  "ui": {
+    "theme": "default",
+    "autoUpdate": true,
+    "showModelInfo": true,
+    "showProviderStatus": true
+  },
+  "security": {
+    "encryptApiKeys": true,
+    "validateRequests": true,
+    "sanitizeResponses": true
+  }
+}

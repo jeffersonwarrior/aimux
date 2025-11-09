@@ -1,0 +1,9 @@
+Hello! This is a test message for the aimux multi-provider system.
+
+Please respond with:
+1. Your model name and provider
+2. Your capabilities (thinking, vision, tools)
+3. Current timestamp
+4. A brief confirmation that you're working through the aimux router
+
+This is a basic connectivity test to verify that the Docker environment is working correctly.

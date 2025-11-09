@@ -1,0 +1,75 @@
+version: '3.8'
+
+services:
+  aimux:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: aimux-test
+    ports:
+      - "8080:8080"  # Router port
+      - "3000:3000"  # Optional: UI port (if applicable)
+    environment:
+      # Aimux Configuration
+      - NODE_ENV=production
+      - AIMUX_DEBUG=1
+      - AIMUX_ROUTER_PORT=8080
+      - AIMUX_LOG_LEVEL=debug
+
+      # API Keys (Minimax M2 provided)
+      - MINIMAX_API_KEY=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJHcm91cE5hbWUiOiJKZWZmZXJzb24gTnVubiIsIlVzZXJOYW1lIjoiSmVmZmVyc29uIE51bm4iLCJBY2NvdW50IjoiIiwiU3ViamVjdElEIjoiMTk1NjQ2OTYxODk5NDMyMzcwMSIsIlBob25lIjoiIiwiR3JvdXBJRCI6IjE5NTY0Njk1NTA0NjM1ODY1NTAiLCJQYWdlTmFtZSI6IiIsIk1haWwiOiJqZWZmZXJzb25AaGVpbWRYWxsc3RyYXRlZ3kuY29tIiwiQ3JlYXRlVGltZSI6IjIwMjUtMTEtMDggMjM6NDQ6MzciLCJUb2tlblR5cGUiOjEsImZzc2ciOiJtaW5pbWF4In0.YFwc4LYMdBq-v8iXQriTyJJq1Smhwj4uCxK1wH1M9ulgwLgEUsfnGievBsaLjBBMCVMOeSnBBdf3T1btvL4Y5XgdrB9aecHixja75kczU_nC70TA-RvIFL3bI8B2gbb0aWhi1Iue1nysum25ux4vn_9h14LPJwEr3Oy7d0qZTEiUkiclvOBu97iKeoqrpG4Og7x69C6tZbiZaSMO3wyHVrylw-KNj5wa1F-H95_oMPH0ochAF-VWnMZgQnZitMgcHm66A8qEuKnX-r-iHsxx_4aXXgewSMmTySbiVryr6weVkUHgFiBdOLj721PRjv2IQb8Md5IHQu7kyfqQwg2Dnw
+
+      # Additional Provider Keys (for future testing)
+      - ZAI_API_KEY=${ZAI_API_KEY:-}
+      - SYNTHETIC_API_KEY=${SYNTHETIC_API_KEY:-}
+
+      # Network Configuration
+      - HTTP_PROXY=${HTTP_PROXY:-}
+      - HTTPS_PROXY=${HTTPS_PROXY:-}
+      - NO_PROXY=${NO_PROXY:-localhost,127.0.0.1}
+
+    volumes:
+      # Persist configuration
+      - aimux_config:/root/.config/aimux
+      # Persist logs
+      - aimux_logs:/app/logs
+      # Mount current directory for development (optional)
+      - ./test-data:/app/test-data:ro
+
+    networks:
+      - aimux-network
+
+    restart: unless-stopped
+
+    healthcheck:
+      test: ["CMD", "sh", "-c", "node -e \"const http = require('http'); const options = { host: 'localhost', port: process.env.AIMUX_ROUTER_PORT || 8080, path: '/health', timeout: 2000 }; const req = http.request(options, (res) => { process.exit(res.statusCode === 200 ? 0 : 1); }); req.on('error', () => process.exit(1)); req.end();\""]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # Optional: Add a simple test service for testing router functionality
+  http-test-server:
+    image: nginx:alpine
+    container_name: aimux-test-server
+    ports:
+      - "8081:80"
+    volumes:
+      - ./test/fixtures/nginx.conf:/etc/nginx/nginx.conf:ro
+    networks:
+      - aimux-network
+    profiles:
+      - testing
+
+volumes:
+  aimux_config:
+    driver: local
+  aimux_logs:
+    driver: local
+
+networks:
+  aimux-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

@@ -1,0 +1,1 @@
+{"version":3,"file":"banner.d.ts","sourceRoot":"","sources":["../../src/utils/banner.ts"],"names":[],"mappings":"AAKA,UAAU,aAAa;IACrB,OAAO,CAAC,EAAE,OAAO,CAAC;IAClB,cAAc,CAAC,EAAE,MAAM,EAAE,CAAC;CAC3B;AAED,wBAAgB,uBAAuB,CAAC,IAAI,EAAE,MAAM,EAAE,GAAG,MAAM,EAAE,CAyBhE;AAED,wBAAgB,YAAY,CAAC,OAAO,GAAE,aAAkB,GAAG,MAAM,CAsChE"}

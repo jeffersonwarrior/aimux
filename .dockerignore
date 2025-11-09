@@ -1,0 +1,45 @@
+# Git
+.git
+.gitignore
+
+# Node modules
+node_modules
+npm-debug.log*
+
+# Distro
+dist/
+
+# Coverage
+coverage/
+
+# Logs
+logs
+*.log
+
+# Runtime
+.DS_Store
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS
+Thumbs.db
+
+# Testing
+test-results/
+temp/
+.tmp/
+
+# Source maps
+*.js.map
+
+# Optional documentation (keep it clean)
+*.md
+!README.md

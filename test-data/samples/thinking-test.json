@@ -1,0 +1,11 @@
+{
+  "model": "abab6.5s-chat",
+  "messages": [
+    {
+      "role": "user",
+      "content": "Think step by step: If I have 3 apples and I give away 1, then buy 2 more, how many apples do I have? Show your reasoning."
+    }
+  ],
+  "temperature": 0.5,
+  "max_tokens": 300
+}

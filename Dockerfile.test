@@ -1,0 +1,97 @@
+FROM node:18-alpine
+
+# Install curl for testing
+RUN apk add --no-cache curl
+
+# Set working directory
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies without prepare script
+RUN npm ci --ignore-scripts
+
+# Copy source code
+COPY . .
+
+# Build the project
+RUN npm run build
+
+# Create test script
+RUN cat > docker-test-auth.sh << 'EOF'
+#!/bin/sh
+
+echo "=== Docker Authentication RCA Test ==="
+echo
+
+# Test 1: Direct API call with environment variables
+echo "Test 1: Direct API call with env vars"
+export ANTHROPIC_API_KEY="85c99bec0fa64a0d8a4a01463868667a.RsDzW0iuxtgvYqd2"
+export ANTHROPIC_BASE_URL="https://api.z.ai/api/anthropic/v1"
+
+echo "ANTHROPIC_API_KEY: $ANTHROPIC_API_KEY"
+echo "ANTHROPIC_BASE_URL: $ANTHROPIC_BASE_URL"
+
+response=$(curl -s -w "\nHTTP_CODE:%{http_code}" -X POST "$ANTHROPIC_BASE_URL/messages" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $ANTHROPIC_API_KEY" \
+  -d '{
+    "model": "glm-4.6",
+    "max_tokens": 10,
+    "messages": [{"role": "user", "content": "test"}]
+  }')
+
+echo "$response"
+echo
+
+# Test 2: Test aimux config loading
+echo "Test 2: Test aimux configuration"
+npm run build > /dev/null 2>&1
+
+# Create minimal config
+mkdir -p ~/.config/aimux
+cat > ~/.config/aimux/config.json << 'CONFIG'
+{
+  "multiProvider": {
+    "providers": {
+      "z-ai": {
+        "name": "Z.AI",
+        "apiKey": "85c99bec0fa64a0d8a4a01463868667a.RsDzW0iuxtgvYqd2",
+        "baseUrl": "https://api.z.ai/api/anthropic/v1",
+        "enabled": true,
+        "priority": 3
+      }
+    },
+    "routing": {
+      "defaultProvider": "z-ai"
+    }
+  },
+  "selectedModel": "glm-4.6",
+  "selectedThinkingModel": "glm-4.6"
+}
+CONFIG
+
+echo "Config created"
+cat ~/.config/aimux/config.json | jq .multiProvider.providers.z-a
+echo
+
+# Test 3: Test aimux launcher logic directly
+echo "Test 3: Test aimux provider config extraction"
+node -e "
+const config = require('./dist/core/config-manager.js').ConfigManager;
+const cm = new config();
+const providerConfig = cm.config.multiProvider?.providers?.['z-ai'];
+console.log('Provider API Key:', providerConfig?.apiKey ? 'SET' : 'MISSING');
+console.log('Provider Base URL:', providerConfig?.baseUrl || 'MISSING');
+console.log('ANTHROPIC_API_KEY would be set to:', providerConfig?.apiKey || cm.config.apiKey || 'EMPTY');
+console.log('ANTHROPIC_BASE_URL would be set to:', providerConfig?.baseUrl || providerConfig?.anthropicBaseUrl || cm.config.anthropicBaseUrl || 'MISSING');
+"
+
+echo
+echo "=== RCA Tests Complete ==="
+EOF
+
+RUN chmod +x docker-test-auth.sh
+
+CMD ["./docker-test-auth.sh"]
