@@ -430,6 +430,33 @@ export class AimuxApp {
     const providerConfig = config.multiProvider?.providers?.[providerId as keyof typeof config.multiProvider.providers];
 
     const providerApiKey = providerConfig?.apiKey || config.apiKey;
+    let baseUrl = providerConfig?.anthropicBaseUrl || providerConfig?.baseUrl || config.anthropicBaseUrl;
+
+    // Special handling for Z.AI: Use local interceptor to fix model transformation
+    if (providerId === 'z-ai') {
+      console.log('[AIMUX] Starting Z.AI interceptor to fix model transformation...');
+
+      // Start the interceptor in background
+      setImmediate(async () => {
+        try {
+          const ZAIInterceptor = require('../interceptors/zai-interceptor');
+          const interceptor = new ZAIInterceptor({ debug: false });
+          interceptor.start();
+          console.log('[AIMUX] Z.AI interceptor started successfully');
+        } catch (error) {
+          console.error(`[AIMUX] Failed to start Z.AI interceptor: ${error.message}`);
+        }
+      });
+
+      // Point Claude Code to our local proxy instead of direct Z.AI
+      baseUrl = 'http://localhost:8123/anthropic';
+
+      // Give the interceptor a moment to start
+      setTimeout(() => {
+        console.log('[AIMUX] Z.AI interceptor active - redirecting requests through proxy');
+      }, 100);
+    }
+
     const launchEnv = {
       ...process.env,
       AIMUX_PROVIDER: providerId,
@@ -437,7 +464,7 @@ export class AimuxApp {
       // Set both API_KEY and AUTH_TOKEN to ensure Claude Code uses the right authentication
       ANTHROPIC_API_KEY: providerApiKey,
       ANTHROPIC_AUTH_TOKEN: providerApiKey,
-      ANTHROPIC_BASE_URL: providerConfig?.anthropicBaseUrl || providerConfig?.baseUrl || config.anthropicBaseUrl,
+      ANTHROPIC_BASE_URL: baseUrl,
     };
 
     const launchOptions: LaunchOptions = {
