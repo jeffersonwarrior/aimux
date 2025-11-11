@@ -1,0 +1,98 @@
+# Environment files (Claude may need to read these)
+# .env
+# .env.*
+# .envrc
+
+# Archives directory
+archives/
+
+# Build directories
+build/
+cmake-build-*/
+dist/
+out/
+
+# Package manager files
+vcpkg_installed/
+conan/.conan2/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Runtime files
+*.pid
+*.lock
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Backup files
+*.bak
+*.backup
+
+# Testing files
+test_[!_]*.txt
+test_*_data/
+benchmark_results/
+
+# Configuration files with secrets
+config_*.json
+*_config.json
+secrets/
+*.key
+*.pem
+*.crt
+
+# Dependencies
+node_modules/
+__pycache__/
+
+# Compiled files
+*.o
+*.obj
+*.so
+*.dylib
+*.dll
+*.exe
+
+# Package files
+*.tar.gz
+*.zip
+*.deb
+*.rpm
+
+# Coverage reports
+coverage/
+*.gcov
+*.gcda
+*.gcno
+
+# Profiling
+*.prof
+*.pprof
+
+# Memory dumps
+core.*
+*.dump
+
+# Performance data
+perf.data*
+*.trace
+
+# Rust artifacts (if any)
+target/
+Cargo.lock

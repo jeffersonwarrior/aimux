@@ -1,0 +1,45 @@
+# Archives directory
+archives/
+
+# Claude can read environment files for configuration
+# .env
+# .env.*
+# .envrc
+
+# Secrets (still ignore for security)
+secrets/
+*.key
+*.pem
+*.crt
+config_*.json
+*_config.json
+
+# Build and temporary files
+build/
+dist/
+cmake-build-*/
+tmp/
+temp/
+*.tmp
+*.log
+logs/
+
+# Dependencies
+node_modules/
+vcpkg_installed/
+__pycache__/
+
+# IDE and OS files
+.vscode/
+.idea/
+.DS_Store
+*.swp
+*.swo
+*~
+
+# Git
+.git/
+.gitignore
+
+# Claude files
+.claudeignore
