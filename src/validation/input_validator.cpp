@@ -1,0 +1,854 @@
+#include "aimux/validation/input_validator.hpp"
+#include <algorithm>
+#include <cctype>
+#include <regex>
+#include <curl/curl.h>
+#include <sstream>
+#include <iomanip>
+#include <fstream>
+#include <sys/statvfs.h>
+#include <sys/resource.h>
+
+namespace aimux {
+namespace validation {
+
+// Static callback for curl URL validation
+static size_t WriteCallback(void* contents, size_t size, size_t nmemb, void* userp) {
+    (void)contents; (void)userp;
+    return size * nmemb;
+}
+
+// ValidationRule implementations
+class RegexValidationRule : public ValidationRule {
+private:
+    std::string pattern_;
+    std::regex regex_;
+
+public:
+    RegexValidationRule(const std::string& pattern)
+        : pattern_(pattern), regex_(pattern) {}
+
+    ValidationResult validate(const nlohmann::json& value,
+                             const ValidationContext& context) const override {
+        (void)context; // Suppress unused parameter warning
+        ValidationResult result;
+
+        if (!value.is_string()) {
+            result.addError(ValidationError(ValidationStatus::ERROR, "field", "type_mismatch",
+                                 "Expected string value", "string", value.type_name()));
+            return result;
+        }
+
+        std::string str_value = value.get<std::string>();
+        if (!std::regex_match(str_value, regex_)) {
+            result.addError(ValidationError(ValidationStatus::ERROR, "field", "regex_mismatch",
+                                 "Value doesn't match required pattern", pattern_, str_value));
+        }
+
+        return result;
+    }
+
+    std::string getRuleName() const override { return "regex_validation"; }
+    std::string getDescription() const override { return "Validates against regex pattern"; }
+};
+
+// StringValidation implementation
+ValidationResult StringValidation::validate(const std::string& input,
+                                          const Config& config,
+                                          const ValidationContext& context) {
+    ValidationResult result;
+    std::string sanitized = input;
+
+    // Length validation
+    if (input.length() < config.min_length) {
+        result.addError(ValidationError(ValidationStatus::ERROR, "field", "min_length",
+                                      "String is too short",
+                                      std::to_string(config.min_length) + " characters",
+                                      std::to_string(input.length()) + " characters",
+                                      "Add more characters to meet minimum length"));
+    }
+
+    if (input.length() > config.max_length) {
+        result.addError(ValidationError(ValidationStatus::ERROR, "field", "max_length",
+                                      "String is too long",
+                                      std::to_string(config.max_length) + " characters",
+                                      std::to_string(input.length()) + " characters",
+                                      "Reduce string length to meet maximum size"));
+    }
+
+    // Pattern validation
+    if (!config.pattern.empty()) {
+        try {
+            std::regex pattern_regex(config.pattern);
+            if (!std::regex_match(input, pattern_regex)) {
+                result.addError(ValidationError(ValidationStatus::ERROR, "field", "pattern_mismatch",
+                                              "String doesn't match required pattern",
+                                              config.pattern, input,
+                                              "Check format requirements"));
+            }
+        } catch (const std::regex_error& e) {
+            result.addError(ValidationError(ValidationStatus::ERROR, "field", "invalid_regex",
+                                          "Invalid validation pattern", "Valid regex", config.pattern,
+                                          "Fix regex pattern in configuration"));
+        }
+    }
+
+    // Enum validation
+    if (!config.allowed_values.empty()) {
+        if (std::find(config.allowed_values.begin(), config.allowed_values.end(), input)
+            == config.allowed_values.end()) {
+            std::string allowed_list = std::accumulate(
+                config.allowed_values.begin(), config.allowed_values.end(), std::string(),
+                [](const std::string& a, const std::string& b) {
+                    return a.empty() ? b : a + ", " + b;
+                });
+
+            result.addError(ValidationError(ValidationStatus::ERROR, "field", "enum_mismatch",
+                                          "Value not in allowed list", allowed_list, input,
+                                          "Use one of the allowed values"));
+        }
+    }
+
+    // Sanitization
+    if (context.sanitize_input) {
+        // Trim whitespace
+        if (config.trim_whitespace) {
+            // Trim from start
+            sanitized.erase(sanitized.begin(),
+                           std::find_if(sanitized.begin(), sanitized.end(),
+                                       [](int ch) { return !std::isspace(ch); }));
+            // Trim from end
+            sanitized.erase(std::find_if(sanitized.rbegin(), sanitized.rend(),
+                                        [](int ch) { return !std::isspace(ch); }).base(),
+                           sanitized.end());
+        }
+
+        // Case conversion
+        if (config.lowercase) {
+            std::transform(sanitized.begin(), sanitized.end(), sanitized.begin(),
+                         [](unsigned char c) { return std::tolower(c); });
+        }
+        if (config.uppercase) {
+            std::transform(sanitized.begin(), sanitized.end(), sanitized.begin(),
+                         [](unsigned char c) { return std::toupper(c); });
+        }
+
+        // HTML sanitization
+        if (config.sanitize_html) {
+            // Basic HTML tag removal
+            std::regex html_tags("<[^>]*>");
+            sanitized = std::regex_replace(sanitized, html_tags, "");
+
+            // HTML entity decoding
+            std::unordered_map<std::string, std::string> entities = {
+                {"&amp;", "&"}, {"&lt;", "<"}, {"&gt;", ">"},
+                {"&quot;", "\""}, {"&#39;", "'"}
+            };
+            for (const auto& [entity, replacement] : entities) {
+                size_t pos = 0;
+                while ((pos = sanitized.find(entity, pos)) != std::string::npos) {
+                    sanitized.replace(pos, entity.length(), replacement);
+                    pos += replacement.length();
+                }
+            }
+        }
+
+        // SQL injection prevention
+        if (config.sanitize_sql) {
+            // Remove dangerous SQL keywords and characters
+            std::vector<std::string> dangerous = {
+                "DROP", "DELETE", "INSERT", "UPDATE", "ALTER", "EXEC",
+                "UNION", "SELECT", "'", "\"", ";", "--", "/*", "*/"
+            };
+            for (const auto& danger : dangerous) {
+                std::regex dangerous_regex("\\b" + danger + "\\b", std::regex_constants::icase);
+                sanitized = std::regex_replace(sanitized, dangerous_regex, "");
+            }
+        }
+    }
+
+    result.sanitized_data = sanitized;
+    return result;
+}
+
+// NumericValidation implementation
+ValidationResult NumericValidation::validate(double input,
+                                           const Config& config,
+                                           const ValidationContext& context) {
+    (void)context; // Suppress unused parameter warning
+    ValidationResult result;
+
+    // Range validation
+    if (input < config.min_value) {
+        result.addError(ValidationError(ValidationStatus::ERROR, "field", "min_value",
+                                      "Value is too small",
+                                      std::to_string(config.min_value),
+                                      std::to_string(input),
+                                      "Increase value to meet minimum requirement"));
+    }
+
+    if (input > config.max_value) {
+        result.addError(ValidationError(ValidationStatus::ERROR, "field", "max_value",
+                                      "Value is too large",
+                                      std::to_string(config.max_value),
+                                      std::to_string(input),
+                                      "Decrease value to meet maximum requirement"));
+    }
+
+    // Integer-only validation
+    if (config.integer_only && input != static_cast<long long>(input)) {
+        result.addError(ValidationError(ValidationStatus::ERROR, "field", "integer_required",
+                                      "Integer value required", "Integer", "Decimal",
+                                      "Use integer value without decimal places"));
+    }
+
+    // Zero validation
+    if (!config.allow_zero && input == 0.0) {
+        result.addError(ValidationError(ValidationStatus::ERROR, "field", "zero_not_allowed",
+                                      "Zero values not allowed", "Non-zero", "Zero",
+                                      "Use a non-zero value"));
+    }
+
+    // Negative validation
+    if (!config.allow_negative && input < 0.0) {
+        result.addError(ValidationError(ValidationStatus::ERROR, "field", "negative_not_allowed",
+                                      "Negative values not allowed", "Positive", "Negative",
+                                      "Use a positive value"));
+    }
+
+    // Decimal places validation
+    if (config.decimal_places >= 0) {
+        std::string str_val = std::to_string(input);
+        auto decimal_pos = str_val.find('.');
+        if (decimal_pos != std::string::npos) {
+            size_t decimal_count = str_val.length() - decimal_pos - 1;
+            if (decimal_count > static_cast<size_t>(config.decimal_places)) {
+                result.addError(ValidationError(ValidationStatus::ERROR, "field", "decimal_places",
+                                              "Too many decimal places",
+                                              std::to_string(config.decimal_places) + " places",
+                                              std::to_string(decimal_count) + " places",
+                                              "Round to required precision"));
+            }
+        }
+    }
+
+    result.sanitized_data = input;
+    return result;
+}
+
+// EmailValidation implementation
+ValidationResult EmailValidation::validate(const std::string& email,
+                                         const Config& config,
+                                         const ValidationContext& context) {
+    (void)context; // Suppress unused parameter warning
+    ValidationResult result;
+
+    // Basic email format validation
+    std::regex email_regex(R"(^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$)");
+    if (!std::regex_match(email, email_regex)) {
+        result.addError(ValidationError(ValidationStatus::ERROR, "email", "invalid_format",
+                                      "Invalid email format", "user@domain.com", email,
+                                      "Check email address format"));
+        return result;
+    }
+
+    // Extract domain
+    std::string domain = email.substr(email.find('@') + 1);
+
+    // Domain validation
+    if (config.allow_domain_validation) {
+        // Check TLD requirement
+        if (config.require_tld) {
+            if (domain.find('.') == std::string::npos) {
+                result.addError(ValidationError(ValidationStatus::ERROR, "email", "missing_tld",
+                                              "Email top-level domain required", "user@domain.com", email,
+                                              "Add TLD to email domain"));
+            }
+        }
+
+        // Allowed domains check
+        if (!config.allowed_domains.empty()) {
+            if (std::find(config.allowed_domains.begin(), config.allowed_domains.end(), domain)
+                == config.allowed_domains.end()) {
+                std::string allowed = std::accumulate(
+                    config.allowed_domains.begin(), config.allowed_domains.end(), std::string(),
+                    [](const std::string& a, const std::string& b) {
+                        return a.empty() ? b : a + ", " + b;
+                    });
+
+                result.addError(ValidationError(ValidationStatus::ERROR, "email", "domain_not_allowed",
+                                              "Email domain not in allowed list", allowed, domain,
+                                              "Use an allowed email domain"));
+            }
+        }
+
+        // Blocked domains check
+        if (!config.blocked_domains.empty()) {
+            if (std::find(config.blocked_domains.begin(), config.blocked_domains.end(), domain)
+                != config.blocked_domains.end()) {
+                result.addError(ValidationError(ValidationStatus::ERROR, "email", "domain_blocked",
+                                              "Email domain is blocked", "Allowed domain", domain,
+                                              "Use a different email domain"));
+            }
+        }
+
+        // MX record check (simplified - would need DNS library for real implementation)
+        if (config.check_mx_record) {
+            // This is a placeholder - real MX record checking would require
+            // integration with a DNS library
+            result.addError(ValidationError(ValidationStatus::WARNING, "email", "mx_check_pending",
+                                          "MX record validation not implemented", "DNS lookup", "Pending",
+                                          "MX record validation requires DNS library"));
+        }
+    }
+
+    result.sanitized_data = email;
+    return result;
+}
+
+// URLValidation implementation
+ValidationResult UrlValidation::validate(const std::string& url,
+                                       const Config& config,
+                                       const ValidationContext& context) {
+    (void)context; // Suppress unused parameter warning
+    ValidationResult result;
+
+    // Length validation
+    if (url.length() > static_cast<size_t>(config.max_length)) {
+        result.addError(ValidationError(ValidationStatus::ERROR, "url", "max_length_exceeded",
+                                      "URL exceeds maximum length",
+                                      std::to_string(config.max_length) + " characters",
+                                      std::to_string(url.length()) + " characters",
+                                      "Use shorter URL"));
+    }
+
+    // Basic URL format validation
+    std::regex url_regex(R"(^(https?):\/\/([^:\/\s]+)(:([0-9]+))?(\/.*)?$)");
+    std::smatch matches;
+    if (!std::regex_match(url, matches, url_regex)) {
+        result.addError(ValidationError(ValidationStatus::ERROR, "url", "invalid_format",
+                                      "Invalid URL format", "https://domain.com/path", url,
+                                      "Check URL format and scheme"));
+        return result;
+    }
+
+    std::string scheme = matches[1].str();
+    std::string domain = matches[2].str();
+
+    // Scheme validation
+    if (std::find(config.allowed_schemes.begin(), config.allowed_schemes.end(), scheme)
+        == config.allowed_schemes.end()) {
+        std::string schemes = std::accumulate(
+            config.allowed_schemes.begin(), config.allowed_schemes.end(), std::string(),
+            [](const std::string& a, const std::string& b) {
+                return a.empty() ? b : a + ", " + b;
+            });
+
+        result.addError(ValidationError(ValidationStatus::ERROR, "url", "invalid_scheme",
+                                      "URL scheme not allowed", schemes, scheme,
+                                      "Use allowed URL scheme"));
+    }
+
+    // SSL requirement
+    if (config.require_ssl && scheme != "https") {
+        result.addError(ValidationError(ValidationStatus::ERROR, "url", "ssl_required",
+                                      "HTTPS required", "https://", scheme + "://",
+                                      "Use HTTPS scheme for security"));
+    }
+
+    // Blocked domains
+    if (!config.blocked_domains.empty()) {
+        if (std::find(config.blocked_domains.begin(), config.blocked_domains.end(), domain)
+            != config.blocked_domains.end()) {
+            result.addError(ValidationError(ValidationStatus::ERROR, "url", "domain_blocked",
+                                          "URL domain is blocked", "Allowed domain", domain,
+                                          "Use different domain"));
+        }
+    }
+
+    // Domain existence check (simplified)
+    if (config.check_domain_exists) {
+        // Use curl to check if domain is reachable
+        CURL* curl = curl_easy_init();
+        if (curl) {
+            curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+            curl_easy_setopt(curl, CURLOPT_NOBODY, 1L); // HEAD request
+            curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
+            curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5L); // 5 second timeout
+
+            CURLcode res = curl_easy_perform(curl);
+            if (res != CURLE_OK) {
+                result.addError(ValidationError(ValidationStatus::WARNING, "url", "domain_unreachable",
+                                              "URL domain may not be reachable", "Valid domain", domain,
+                                              "Verify domain exists and is accessible"));
+            }
+
+            curl_easy_cleanup(curl);
+        }
+    }
+
+    result.sanitized_data = url;
+    return result;
+}
+
+// JsonSchemaValidation implementation
+ValidationResult JsonSchemaValidation::validate(const nlohmann::json& data,
+                                              const Config& config,
+                                              const ValidationContext& context) {
+    ValidationResult result;
+
+    try {
+        // Type validation
+        if (config.schema.contains("type")) {
+            std::string expected_type = config.schema["type"];
+            bool type_match = false;
+
+            if (expected_type == "object" && data.is_object()) type_match = true;
+            else if (expected_type == "array" && data.is_array()) type_match = true;
+            else if (expected_type == "string" && data.is_string()) type_match = true;
+            else if (expected_type == "number" && data.is_number()) type_match = true;
+            else if (expected_type == "boolean" && data.is_boolean()) type_match = true;
+            else if (expected_type == "null" && data.is_null()) type_match = true;
+
+            if (!type_match) {
+                result.addError(ValidationError(ValidationStatus::ERROR, "data", "type_mismatch",
+                                              "JSON type doesn't match schema", expected_type, data.type_name(),
+                                              "Use correct data type"));
+            }
+        }
+
+        // Required properties validation for objects
+        if (data.is_object() && config.schema.contains("required")) {
+            for (const auto& required_field : config.schema["required"]) {
+                std::string field_name = required_field.get<std::string>();
+                if (!data.contains(field_name)) {
+                    result.addError(ValidationError(ValidationStatus::ERROR, field_name, "required_field_missing",
+                                                  "Required field is missing", field_name, "missing",
+                                                  "Add required field to JSON"));
+                }
+            }
+        }
+
+        // Properties validation
+        if (data.is_object() && config.schema.contains("properties")) {
+            for (auto& [field_name, field_schema] : config.schema["properties"].items()) {
+                if (data.contains(field_name)) {
+                    ValidationResult field_result = validate(data[field_name],
+                                                           {config.name, config.description,
+                                                            field_schema, config.strict_type_checking,
+                                                            config.allow_unknown_fields,
+                                                            config.field_descriptions},
+                                                           context);
+                    if (!field_result.isValid()) {
+                        for (const auto& error : field_result.errors) {
+                            result.addError(error);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Items validation for arrays
+        if (data.is_array() && config.schema.contains("items")) {
+            for (size_t i = 0; i < data.size(); ++i) {
+                ValidationResult item_result = validate(data[i],
+                                                       {config.name, config.description,
+                                                        config.schema["items"], config.strict_type_checking,
+                                                        config.allow_unknown_fields,
+                                                        config.field_descriptions},
+                                                       context);
+                if (!item_result.isValid()) {
+                    // Add array index context to errors
+                    for (const auto& error : item_result.errors) {
+                        ValidationError indexed_error = error;
+                        indexed_error.field_path = "[" + std::to_string(i) + "]." + error.field_path;
+                        result.addError(indexed_error);
+                    }
+                }
+            }
+        }
+
+        // Unknown fields validation
+        if (data.is_object() && config.schema.contains("properties") &&
+            !config.allow_unknown_fields && config.strict_type_checking) {
+            for (auto& [field_name, _] : data.items()) {
+                if (!config.schema["properties"].contains(field_name)) {
+                    result.addError(ValidationError(ValidationStatus::WARNING, field_name, "unknown_field",
+                                                  "Unknown field in data", "Known fields only", field_name,
+                                                  "Remove or document extra field"));
+                }
+            }
+        }
+
+    } catch (const std::exception& e) {
+        result.addError(ValidationError(ValidationStatus::ERROR, "schema", "validation_error",
+                                      "Schema validation failed", "Valid schema", "Error: " + std::string(e.what()),
+                                      "Check schema format and data structure"));
+    }
+
+    if (result.isValid()) {
+        result.sanitized_data = data;
+    }
+
+    return result;
+}
+
+// ApiKeyValidation implementation
+ValidationResult ApiKeyValidation::validate(const std::string& api_key,
+                                          const Config& config,
+                                          const ValidationContext& context) {
+    (void)context; // Suppress unused parameter warning
+    ValidationResult result;
+
+    // Length validation
+    if (api_key.length() < config.min_length) {
+        result.addError(ValidationError(ValidationStatus::ERROR, "api_key", "min_length",
+                                      "API key too short",
+                                      std::to_string(config.min_length) + " characters",
+                                      std::to_string(api_key.length()) + " characters",
+                                      "Use a longer API key"));
+    }
+
+    if (api_key.length() > config.max_length) {
+        result.addError(ValidationError(ValidationStatus::ERROR, "api_key", "max_length",
+                                      "API key too long",
+                                      std::to_string(config.max_length) + " characters",
+                                      std::to_string(api_key.length()) + " characters",
+                                      "Use a shorter API key"));
+    }
+
+    // Pattern validation
+    if (!config.pattern.empty()) {
+        try {
+            std::regex pattern_regex(config.pattern);
+            if (!std::regex_match(api_key, pattern_regex)) {
+                result.addError(ValidationError(ValidationStatus::ERROR, "api_key", "pattern_mismatch",
+                                              "API key format invalid", config.pattern, api_key,
+                                              "Check API key format requirements"));
+            }
+        } catch (const std::regex_error& e) {
+            result.addError(ValidationError(ValidationStatus::ERROR, "api_key", "invalid_pattern",
+                                          "Invalid validation pattern", "Valid regex", config.pattern,
+                                          "Fix API key validation pattern"));
+        }
+    }
+
+    // Forbidden patterns check
+    for (const auto& forbidden : config.forbidden_patterns) {
+        if (api_key.find(forbidden) != std::string::npos) {
+            result.addError(ValidationError(ValidationStatus::ERROR, "api_key", "forbidden_pattern",
+                                          "API key contains forbidden pattern", "Pattern: " + forbidden, "",
+                                          "Remove forbidden pattern from API key"));
+        }
+    }
+
+    // Basic format checks for common API key patterns
+    if (config.simulate_check) {
+        // Check for common API key prefixes
+        std::vector<std::string> valid_prefixes = {
+            "sk-", "AIza", "pk_", "sk_live_", "sk_test_",
+            "xoxb-", "xoxp-", "ghp_", "gho_", "ghu_"
+        };
+
+        bool valid_prefix = false;
+        for (const auto& prefix : valid_prefixes) {
+            if (api_key.substr(0, prefix.length()) == prefix) {
+                valid_prefix = true;
+                break;
+            }
+        }
+
+        if (!valid_prefix) {
+            result.addError(ValidationError(ValidationStatus::WARNING, "api_key", "unusual_format",
+                                          "API key has unusual format", "Standard format", api_key,
+                                          "Verify API key is correct"));
+        }
+    }
+
+    result.sanitized_data = api_key;
+    return result;
+}
+
+// InputValidator implementation
+InputValidator& InputValidator::getInstance() {
+    static InputValidator instance;
+    return instance;
+}
+
+ValidationResult InputValidator::validateJson(const nlohmann::json& data,
+                                            const nlohmann::json& schema,
+                                            const ValidationContext& context) const {
+    JsonSchemaValidation::Config config;
+    config.schema = schema;
+    config.name = "json_schema_validation";
+    config.description = "JSON schema validation";
+
+    return JsonSchemaValidation::validate(data, config, context);
+}
+
+ValidationResult InputValidator::validateString(const std::string& input,
+                                              const StringValidation::Config& config,
+                                              const ValidationContext& context) const {
+    return StringValidation::validate(input, config, context);
+}
+
+ValidationResult InputValidator::validateNumber(const double input,
+                                              const NumericValidation::Config& config,
+                                              const ValidationContext& context) const {
+    return NumericValidation::validate(input, config, context);
+}
+
+ValidationResult InputValidator::validateEmail(const std::string& email,
+                                              const EmailValidation::Config& config,
+                                              const ValidationContext& context) const {
+    return EmailValidation::validate(email, config, context);
+}
+
+ValidationResult InputValidator::validateUrl(const std::string& url,
+                                           const UrlValidation::Config& config,
+                                           const ValidationContext& context) const {
+    return UrlValidation::validate(url, config, context);
+}
+
+ValidationResult InputValidator::validateApiKey(const std::string& api_key,
+                                              const ApiKeyValidation::Config& config,
+                                              const ValidationContext& context) const {
+    return ApiKeyValidation::validate(api_key, config, context);
+}
+
+std::string InputValidator::sanitizeString(const std::string& input,
+                                          const ValidationContext& context) const {
+    StringValidation::Config config;
+    config.trim_whitespace = true;
+    config.sanitize_html = true;
+    config.sanitize_sql = true;
+
+    auto result = StringValidation::validate(input, config, context);
+    if (result.isValid() && result.sanitized_data.is_string()) {
+        return result.sanitized_data.get<std::string>();
+    }
+    return input;
+}
+
+void InputValidator::registerRule(const std::string& name,
+                                 std::unique_ptr<ValidationRule> rule) {
+    rules_[name] = std::move(rule);
+}
+
+// Preset implementations
+JsonSchemaValidation::Config InputValidator::Presets::createApiRequestSchema() {
+    nlohmann::json schema = nlohmann::json::object();
+    schema["type"] = "object";
+    schema["required"] = nlohmann::json::array({"endpoint", "method"});
+
+    nlohmann::json properties = nlohmann::json::object();
+
+    nlohmann::json endpoint = nlohmann::json::object();
+    endpoint["type"] = "string";
+    endpoint["minLength"] = 1;
+    endpoint["maxLength"] = 255;
+    endpoint["pattern"] = R"(^/[\w\-/\.]+)$";
+    properties["endpoint"] = endpoint;
+
+    nlohmann::json method = nlohmann::json::object();
+    method["type"] = "string";
+    method["enum"] = nlohmann::json::array({"GET", "POST", "PUT", "DELETE", "PATCH"});
+    properties["method"] = method;
+
+    nlohmann::json api_key = nlohmann::json::object();
+    api_key["type"] = "string";
+    api_key["minLength"] = 16;
+    properties["api_key"] = api_key;
+
+    nlohmann::json data = nlohmann::json::object();
+    data["type"] = "object";
+    properties["data"] = data;
+
+    schema["properties"] = properties;
+
+    return {
+        "api_request_schema",
+        "Standard API request validation schema",
+        schema,
+        true,
+        false,
+        {
+            {"endpoint", "API endpoint path"},
+            {"method", "HTTP method"},
+            {"api_key", "Authentication key"},
+            {"data", "Request payload data"}
+        }
+    };
+}
+
+JsonSchemaValidation::Config InputValidator::Presets::createConfigurationSchema() {
+    return {
+        "config_schema",
+        "Configuration validation schema",
+        {
+            {"type", "object"},
+            {"properties", {
+                {"provider", {
+                    {"type", "string"},
+                    {"enum", nlohmann::json::array({"cerebras", "zai", "anthropic"})}
+                }},
+                {"model", {
+                    {"type", "string"},
+                    {"minLength", 1}
+                }},
+                {"api_key", {
+                    {"type", "string"},
+                    {"minLength", 16},
+                    {"maxLength", 256}
+                }},
+                {"timeout", {
+                    {"type", "number"},
+                    {"minimum", 100},
+                    {"maximum", 300000}
+                }}
+            }}
+        },
+        true,
+        false,
+        {
+            {"provider", "AI provider name"},
+            {"model", "Model identifier"},
+            {"api_key", "Provider API key"},
+            {"timeout", "Request timeout in milliseconds"}
+        }
+    };
+}
+
+StringValidation::Config InputValidator::Presets::createUsernameConfig() {
+    return {
+        "username_validation",
+        "Username validation with security constraints",
+        3,  // min_length
+        50, // max_length
+        R"(^[a-zA-Z0-9_-]+$)", // pattern
+        std::vector<std::string>{"admin", "root", "system"}, // forbidden values (example)
+        true, // trim_whitespace
+        false, // lowercase
+        false, // uppercase
+        {}, // custom_validators
+        true, // sanitize_html
+        false // sanitize_sql
+    };
+}
+
+StringValidation::Config InputValidator::Presets::createApiKeyConfig() {
+    return {
+        "api_key_validation",
+        "API key validation with security checks",
+        16, // min_length
+        256, // max_length
+        "", // pattern (provider-specific)
+        {}, // allowed_values
+        true, // trim_whitespace
+        false, // lowercase
+        false, // uppercase
+        {}, // custom_validators
+        true, // sanitize_html
+        true  // sanitize_sql
+    };
+}
+
+EmailValidation::Config InputValidator::Presets::createStandardEmailConfig() {
+    return {
+        "standard_email_validation",
+        "Standard email validation with security checks",
+        true,  // allow_domain_validation
+        {},    // allowed_domains
+        {"tempmail.org", "10minutemail.com"}, // blocked_domains (examples)
+        false, // check_mx_record
+        true   // require_tld
+    };
+}
+
+ValidationContext InputValidator::createProductionContext() {
+    ValidationContext context;
+    context.strict_mode = true;
+    context.sanitize_input = true;
+    context.detailed_errors = false; // Don't expose details in production
+    return context;
+}
+
+ValidationContext InputValidator::createDevelopmentContext() {
+    ValidationContext context;
+    context.strict_mode = false;
+    context.sanitize_input = true;
+    context.detailed_errors = true; // Provide details for development
+    return context;
+}
+
+// Helper methods
+bool InputValidator::isValidRegex(const std::string& pattern) const {
+    try {
+        std::regex test_regex(pattern);
+        return true;
+    } catch (const std::regex_error&) {
+        return false;
+    }
+}
+
+bool InputValidator::validateDomainExists(const std::string& domain) const {
+    CURL* curl = curl_easy_init();
+    if (!curl) return false;
+
+    std::string url = "https://" + domain;
+    curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+    curl_easy_setopt(curl, CURLOPT_NOBODY, 1L);
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5L);
+
+    CURLcode res = curl_easy_perform(curl);
+    long response_code = 0;
+    curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response_code);
+
+    curl_easy_cleanup(curl);
+
+    return (res == CURLE_OK && response_code >= 200 && response_code < 400);
+}
+
+std::string InputValidator::extractDomainFromEmail(const std::string& email) const {
+    size_t at_pos = email.find('@');
+    return (at_pos != std::string::npos) ? email.substr(at_pos + 1) : "";
+}
+
+std::string InputValidator::extractDomainFromUrl(const std::string& url) const {
+    try {
+        std::regex url_regex(R"(^(https?):\/\/([^:\/\s]+))");
+        std::smatch matches;
+        if (std::regex_match(url, matches, url_regex)) {
+            return matches[2].str();
+        }
+    } catch (const std::regex_error&) {
+        // Invalid URL regex
+    }
+    return "";
+}
+
+nlohmann::json InputValidator::sanitizeJson(const nlohmann::json& input,
+                                           const ValidationContext& context) const {
+    if (input.is_string()) {
+        std::string sanitized = sanitizeString(input.get<std::string>(), context);
+        return sanitized;
+    } else if (input.is_object()) {
+        nlohmann::json sanitized = nlohmann::json::object();
+        for (auto& [key, value] : input.items()) {
+            sanitized[key] = sanitizeJson(value, context);
+        }
+        return sanitized;
+    } else if (input.is_array()) {
+        nlohmann::json sanitized = nlohmann::json::array();
+        for (const auto& value : input) {
+            sanitized.push_back(sanitizeJson(value, context));
+        }
+        return sanitized;
+    }
+
+    return input;
+}
+
+} // namespace validation
+} // namespace aimux

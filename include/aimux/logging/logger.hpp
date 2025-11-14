@@ -202,5 +202,24 @@ public:
     static std::string get_current_timestamp();
 };
 
+// Global convenience functions
+void debug(const std::string& message, const nlohmann::json& data = nlohmann::json{});
+void info(const std::string& message, const nlohmann::json& data = nlohmann::json{});
+void warn(const std::string& message, const nlohmann::json& data = nlohmann::json{});
+void error(const std::string& message, const nlohmann::json& data = nlohmann::json{});
+void fatal(const std::string& message, const nlohmann::json& data = nlohmann::json{});
+void trace(const std::string& message, const nlohmann::json& data = nlohmann::json{});
+
 } // namespace logging
 } // namespace aimux
+
+// Global convenience functions in aimux namespace
+namespace aimux {
+void debug(const std::string& message, const nlohmann::json& data = nlohmann::json{});
+void info(const std::string& message, const nlohmann::json& data = nlohmann::json{});
+void warn(const std::string& message, const nlohmann::json& data = nlohmann::json{});
+void error(const std::string& message, const nlohmann::json& data = nlohmann::json{});
+void fatal(const std::string& message, const nlohmann::json& data = nlohmann::json{});
+void trace(const std::string& message, const nlohmann::json& data = nlohmann::json{});
+} // namespace aimux
+

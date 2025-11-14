@@ -280,5 +280,66 @@ std::string LogUtils::get_current_timestamp() {
     return oss.str();
 }
 
+// Global convenience functions
+void debug(const std::string& message, const nlohmann::json& data) {
+    auto logger = LoggerRegistry::get_logger("global");
+    logger->debug(message, data);
+}
+
+void info(const std::string& message, const nlohmann::json& data) {
+    auto logger = LoggerRegistry::get_logger("global");
+    logger->info(message, data);
+}
+
+void warn(const std::string& message, const nlohmann::json& data) {
+    auto logger = LoggerRegistry::get_logger("global");
+    logger->warn(message, data);
+}
+
+void error(const std::string& message, const nlohmann::json& data) {
+    auto logger = LoggerRegistry::get_logger("global");
+    logger->error(message, data);
+}
+
+void fatal(const std::string& message, const nlohmann::json& data) {
+    auto logger = LoggerRegistry::get_logger("global");
+    logger->fatal(message, data);
+}
+
+void trace(const std::string& message, const nlohmann::json& data) {
+    auto logger = LoggerRegistry::get_logger("global");
+    logger->trace(message, data);
+}
+
 } // namespace logging
 } // namespace aimux
+
+// Global convenience functions in aimux namespace
+namespace aimux {
+
+void debug(const std::string& message, const nlohmann::json& data) {
+    logging::debug(message, data);
+}
+
+void info(const std::string& message, const nlohmann::json& data) {
+    logging::info(message, data);
+}
+
+void warn(const std::string& message, const nlohmann::json& data) {
+    logging::warn(message, data);
+}
+
+void error(const std::string& message, const nlohmann::json& data) {
+    logging::error(message, data);
+}
+
+void fatal(const std::string& message, const nlohmann::json& data) {
+    logging::fatal(message, data);
+}
+
+void trace(const std::string& message, const nlohmann::json& data) {
+    logging::trace(message, data);
+}
+
+} // namespace aimux
+

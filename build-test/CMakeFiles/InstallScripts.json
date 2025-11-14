@@ -1,0 +1,7 @@
+{
+	"InstallScripts" : 
+	[
+		"/home/agent/aimux2/aimux/build-test/cmake_install.cmake"
+	],
+	"Parallel" : false
+}

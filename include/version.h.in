@@ -1,0 +1,33 @@
+#ifndef AIMUX_VERSION_H
+#define AIMUX_VERSION_H
+
+#include <string>
+
+namespace aimux {
+    // Build information constants with CMake substitution
+    constexpr const char* VERSION_MAJOR = "@PROJECT_VERSION_MAJOR@";
+    constexpr const char* VERSION_MINOR = "@PROJECT_VERSION_MINOR@";
+    constexpr const char* VERSION_PATCH = "@PROJECT_VERSION_PATCH@";
+    constexpr const char* VERSION_FULL = "@PROJECT_VERSION@";
+    constexpr const char* GIT_VERSION = "@GIT_VERSION@";
+    constexpr const char* GIT_COMMIT = "@GIT_COMMIT@";
+    constexpr const char* BUILD_DATE = "@GIT_DATE@";
+    constexpr const char* BUILD_TYPE = "@CMAKE_BUILD_TYPE@";
+
+    // Utility function for version string
+    inline std::string getFullVersionString() {
+        return std::string("aimux/") + VERSION_FULL +
+               " (" + GIT_VERSION + "-" + GIT_COMMIT.substr(0, 7) + ")";
+    }
+
+    inline std::string getBuildInfo() {
+        return std::string("Build: ") + BUILD_TYPE + " " + BUILD_DATE;
+    }
+
+    // Check if this is a production build
+    inline bool isProductionBuild() {
+        return std::string(BUILD_TYPE) == "Release";
+    }
+}
+
+#endif // AIMUX_VERSION_H

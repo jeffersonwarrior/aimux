@@ -106,69 +106,23 @@ public:
      * @param name Header name
      */
     void remove_default_header(const std::string& name);
+    
+    /**
+     * @brief Check if client is available for requests
+     * @return true if available
+     */
+    bool is_available() const;
+    
+    /**
+     * @brief Reset client state
+     */
+    void reset();
 
 private:
     struct Impl;
     std::unique_ptr<Impl> pImpl;
 };
 
-/**
- * @brief Connection pool for efficient HTTP connections
- */
-class ConnectionPool {
-public:
-    /**
-     * @brief Connection information
-     */
-    struct Connection {
-        std::string host;
-        int port;
-        bool is_ssl = false;
-        void* handle = nullptr; // CURL handle
-        std::chrono::steady_clock::time_point last_used;
-        bool in_use = false;
-    };
-    
-    /**
-     * @brief Constructor
-     * @param max_connections Maximum connections in pool
-     * @param idle_timeout_ms Idle timeout before closing connection
-     */
-    explicit ConnectionPool(int max_connections = 10, int idle_timeout_ms = 300000);
-    
-    /**
-     * @brief Destructor
-     */
-    ~ConnectionPool();
-    
-    /**
-     * @brief Get a connection from the pool
-     * @param url URL to connect to
-     * @return Connection pointer or nullptr if pool full
-     */
-    std::shared_ptr<Connection> get_connection(const std::string& url);
-    
-    /**
-     * @brief Return connection to pool
-     * @param connection Connection to return
-     */
-    void return_connection(std::shared_ptr<Connection> connection);
-    
-    /**
-     * @brief Clean up idle connections
-     */
-    void cleanup_idle_connections();
-    
-    /**
-     * @brief Get pool statistics
-     * @return JSON with pool metrics
-     */
-    nlohmann::json get_statistics() const;
-
-private:
-    struct Impl;
-    std::unique_ptr<Impl> pImpl;
-};
 
 /**
  * @brief Factory for creating HTTP clients

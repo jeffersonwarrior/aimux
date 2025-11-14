@@ -167,6 +167,10 @@ std::string LoadBalancer::select_provider(const std::vector<std::string>& availa
             return select_least_connections(available_providers);
         case Strategy::FASTEST_RESPONSE:
             return select_fastest_response(available_providers);
+        case Strategy::WEIGHTED_ROUND_ROBIN:
+            return select_weighted_round_robin(available_providers);
+        case Strategy::ADAPTIVE:
+            return select_adaptive(available_providers);
         case Strategy::RANDOM:
             return select_random(available_providers);
         default:
@@ -269,10 +273,84 @@ std::string LoadBalancer::select_fastest_response(const std::vector<std::string>
     return best_provider;
 }
 
+std::string LoadBalancer::select_adaptive(const std::vector<std::string>& available_providers) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    
+    if (available_providers.empty()) {
+        return "";
+    }
+    
+    // Adaptive algorithm: combines multiple factors
+    std::vector<std::tuple<std::string, double, int>> scored_providers;
+    
+    for (const auto& provider : available_providers) {
+        if (auto* metrics = find_metrics(provider)) {
+            double response_score = metrics->avg_response_time_ms > 0 ? 
+                                100.0 / metrics->avg_response_time_ms : 100.0;
+            int connection_score = std::max(0, 10 - metrics->current_connections);
+            double overall_score = (response_score * 0.7) + (connection_score * 0.3);
+            
+            scored_providers.emplace_back(provider, overall_score, metrics->total_requests);
+        }
+    }
+    
+    // Sort by score (highest first), then by total_requests
+    std::sort(scored_providers.begin(), scored_providers.end(),
+        [](const auto& a, const auto& b) {
+            if (std::get<1>(a) != std::get<1>(b)) {
+                return std::get<1>(a) > std::get<1>(b);
+            }
+            return std::get<2>(a) < std::get<2>(b);
+        });
+    
+    return std::get<0>(scored_providers[0]);
+}
+
+std::string LoadBalancer::select_weighted_round_robin(const std::vector<std::string>& available_providers) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    
+    if (available_providers.empty()) {
+        return "";
+    }
+    
+    // For weighted round robin, we'll use response times as weights (faster = higher weight)
+    std::vector<std::pair<std::string, double>> weighted_providers;
+    double total_weight = 0.0;
+    
+    for (const auto& provider : available_providers) {
+        if (auto* metrics = find_metrics(provider)) {
+            // Inverse response time as weight (faster = higher weight)
+            double weight = metrics->avg_response_time_ms > 0 ? 
+                          1000.0 / metrics->avg_response_time_ms : 1000.0;
+            weighted_providers.emplace_back(provider, weight);
+            total_weight += weight;
+        } else {
+            // New provider gets default weight
+            weighted_providers.emplace_back(provider, 100.0);
+            total_weight += 100.0;
+        }
+    }
+    
+    // Select provider based on weights
+    std::uniform_real_distribution<double> dist(0.0, total_weight);
+    double random_weight = dist(rng_);
+    
+    double current_weight = 0.0;
+    for (const auto& [provider, weight] : weighted_providers) {
+        current_weight += weight;
+        if (random_weight <= current_weight) {
+            return provider;
+        }
+    }
+    
+    // Fallback to first provider
+    return available_providers[0];
+}
+
 std::string LoadBalancer::select_random(const std::vector<std::string>& available_providers) {
     static std::random_device rd;
     static std::mt19937 gen(rd());
-    std::uniform_int_distribution<> dis(0, available_providers.size() - 1);
+    std::uniform_int_distribution<std::size_t> dis(0, available_providers.size() - 1);
     return available_providers[dis(gen)];
 }
 

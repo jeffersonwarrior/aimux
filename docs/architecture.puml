@@ -1,0 +1,125 @@
+@startuml Aimux v2.0.0 Architecture Overview
+
+' Title and configuration
+title Aimux v2.0.0 - Enterprise AI Service Router Architecture
+caption High-level system architecture showing main components and data flows
+scale 1.0
+skinparam backgroundColor #F8F9FA
+skinparam actorStyle awesome
+skinparam rectangle {
+    BorderColor #2C3E50
+    BackgroundColor #FFFFFF
+    ShadowColor #BDC3C7
+}
+skinparam database {
+    BorderColor #8E44AD
+    BackgroundColor #F8E6FF
+}
+skinparam queue {
+    BorderColor #E67E22
+    BackgroundColor #FFF3E0
+}
+
+' Define packages
+package "Client Layer" {
+    [Web UI] as WebUI
+    [CLI Interface] as CLI
+    [REST API Client] as APIClient
+}
+
+package "Aimux Core System" {
+    package "Gateway Layer" {
+        [Claude Gateway] as ClaudeGW
+        [API Transformer] as Transformer
+        [Format Detector] as FormatDetector
+        [Provider Health] as Health
+    }
+
+    package "Router & Bridge" {
+        [Router] as Router
+        [Bridge Interface] as Bridge
+        [Failover Manager] as Failover
+        [Bridge Factory] as BridgeFactory
+    }
+
+    package "Core Services" {
+        [Thread Manager] as ThreadMgr
+        [Error Handler] as ErrorMgr
+        [Logging System] as Logging
+        [Correlation Context] as Correlation
+    }
+}
+
+package "Provider Layer" {
+    [Claude Provider] as Claude
+    [Cerebras Provider] as Cerebras
+    [ZAI Provider] as ZAI
+    [Synthetic Provider] as Synthetic
+}
+
+package "Infrastructure" {
+    [Configuration Manager] as Config
+    [Metric Collector] as Metrics
+    [Security Manager] as Security
+    [Web Server] as WebServer
+}
+
+' External systems
+database "Config Files" as ConfigFiles
+database "Log Storage" as LogStorage
+database "Metrics Database" as MetricsDB
+
+' Define component relationships
+WebUI --> WebServer : HTTP/WS
+CLI --> Router : Direct
+APIClient --> ClaudeGW : REST API
+
+ClaudeGW --> Router : Route Request
+ClaudeGW --> Transformer : Transform
+ClaudeGW --> FormatDetector : Detect
+ClaudeGW --> Health : Check
+
+Router --> Bridge : Send Request
+Router --> Failover : Handle Failure
+Failover --> BridgeFactory : Create Bridge
+BridgeFactory --> Bridge : Get Instance
+
+Bridge --> Claude : HTTP/gRPC
+Bridge --> Cerebras : HTTP/gRPC
+Bridge --> ZAI : HTTP/gRPC
+Bridge --> Synthetic : Local
+
+Router --> ThreadMgr : Async Tasks
+Router --> ErrorMgr : Error Handling
+Router --> Logging : Structured Logs
+Router --> Correlation : Correlation ID
+
+ClaudeGW --> Config : Load Config
+ClaudeGW --> Metrics : Collect Metrics
+ClaudeGW --> Security : Validate
+
+WebServer --> Config : HTTP Config
+WebServer --> Metrics : Metrics API
+WebServer --> LogStorage : Log API
+
+Config --> ConfigFiles : Load/Store
+Logging --> LogStorage : Write Logs
+Metrics --> MetricsDB : Store Metrics
+
+' Component styles
+skinparam component {
+    BackgroundColor #E8F4FD
+    BorderColor #2196F3
+    FontColor #0D47A1
+}
+
+skinparam package {
+    BackgroundColor #F3E5F5
+    BorderColor #9C27B0
+    FontColor #4A148C
+}
+
+' Layout hints
+left to right direction
+
+@enduml

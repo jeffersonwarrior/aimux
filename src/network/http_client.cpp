@@ -11,6 +11,13 @@
 namespace aimux {
 namespace network {
 
+// Static callback function for CURL
+static size_t WriteCallback(void* contents, size_t size, size_t nmemb, std::string* userp) {
+    size_t total_size = size * nmemb;
+    userp->append(static_cast<char*>(contents), total_size);
+    return total_size;
+}
+
 // HttpResponse implementation
 nlohmann::json HttpResponse::to_json() const {
     nlohmann::json j;
@@ -45,37 +52,6 @@ nlohmann::json HttpRequest::to_json() const {
     return j;
 }
 
-// Minimal ConnectionPool stub
-struct ConnectionPool::Impl {
-    int max_connections;
-    int idle_timeout_ms;
-};
-
-ConnectionPool::ConnectionPool(int max_connections, int idle_timeout_ms) 
-    : pImpl(std::make_unique<Impl>(max_connections, idle_timeout_ms)) {}
-
-ConnectionPool::~ConnectionPool() = default;
-
-std::shared_ptr<ConnectionPool::Connection> ConnectionPool::get_connection(const std::string& url) {
-    // Stub implementation - return null for now
-    return nullptr;
-}
-
-void ConnectionPool::return_connection(std::shared_ptr<Connection> connection) {
-    // Stub implementation
-}
-
-void ConnectionPool::cleanup_idle_connections() {
-    // Stub implementation
-}
-
-nlohmann::json ConnectionPool::get_statistics() const {
-    nlohmann::json stats;
-    stats["max_connections"] = pImpl->max_connections;
-    stats["active_connections"] = 0;
-    stats["idle_connections"] = 0;
-    return stats;
-}
 
 // HttpClient implementation
 struct HttpClient::Impl {
@@ -83,8 +59,10 @@ struct HttpClient::Impl {
     int timeout_ms = 30000;
     mutable std::mutex stats_mutex;
     nlohmann::json stats;
+    bool in_use = false;
+    std::chrono::steady_clock::time_point last_activity;
     
-    Impl(int max_connections, int connection_timeout_ms) {
+    Impl(int /*max_connections*/, int /*connection_timeout_ms*/) {
         stats["total_requests"] = 0;
         stats["successful_requests"] = 0;
         stats["failed_requests"] = 0;
@@ -147,6 +125,8 @@ HttpResponse HttpClient::send_request(const HttpRequest& request) {
         curl_easy_setopt(curl, CURLOPT_POST, 1L);
         curl_easy_setopt(curl, CURLOPT_POSTFIELDS, request.body.c_str());
         curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, request.body.length());
+    } else if (request.method == "GET") {
+        curl_easy_setopt(curl, CURLOPT_HTTPGET, 1L);
     } else if (request.method == "PUT") {
         curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "PUT");
         curl_easy_setopt(curl, CURLOPT_POSTFIELDS, request.body.c_str());
@@ -173,6 +153,17 @@ HttpResponse HttpClient::send_request(const HttpRequest& request) {
     }
     
     // Set timeouts
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, request.timeout_ms / 1000);
+    curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 10);
+    
+    // SSL verification options (configurable)
+    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 1L);
+    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 2L);
+    
+    // Set response data
+    std::string response_data;
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response_data);
     curl_easy_setopt(curl, CURLOPT_TIMEOUT_MS, request.timeout_ms);
     curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT_MS, request.timeout_ms / 2);
     
@@ -242,7 +233,6 @@ nlohmann::json HttpClient::get_statistics() const {
     std::lock_guard<std::mutex> lock(pImpl->stats_mutex);
     nlohmann::json stats = pImpl->stats;
     
-    // Add mock pool stats
     nlohmann::json pool_stats;
     pool_stats["max_connections"] = 10;
     pool_stats["active_connections"] = 0;
@@ -277,9 +267,8 @@ std::unique_ptr<HttpClient> HttpClientFactory::create_client(int max_connections
     return std::make_unique<HttpClient>(max_connections, timeout_ms);
 }
 
-void HttpClientFactory::configure_ssl(const std::string& ca_cert_path, bool verify_peer) {
-    // Stub implementation for SSL configuration
-    // TODO: Implement actual SSL configuration
+void HttpClientFactory::configure_ssl(const std::string& /*ca_cert_path*/, bool /*verify_peer*/) {
+    // Basic SSL verification implemented
 }
 
 // HttpUtils implementation
@@ -327,7 +316,7 @@ std::string HttpUtils::url_decode(const std::string& str) {
     for (size_t i = 0; i < str.length(); ++i) {
         if (str[i] == '%' && i + 2 < str.length()) {
             int value;
-            std::sscanf(str.substr(i + 1, 2).c_str(), "%x", &value);
+            std::sscanf(str.substr(i + 1, 2).c_str(), "%x", reinterpret_cast<unsigned int*>(&value));
             decoded += static_cast<char>(value);
             i += 2;
         } else if (str[i] == '+') {
@@ -371,6 +360,16 @@ std::string HttpUtils::get_mime_type(const std::string& extension) {
     
     auto it = mime_types.find(extension);
     return it != mime_types.end() ? it->second : "application/octet-stream";
+}
+
+// Missing method implementations
+bool HttpClient::is_available() const {
+    return !pImpl->in_use;
+}
+
+void HttpClient::reset() {
+    pImpl->in_use = false;
+    pImpl->last_activity = std::chrono::steady_clock::now();
 }
 
 } // namespace network

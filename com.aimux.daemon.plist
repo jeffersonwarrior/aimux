@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.aimux.daemon</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/local/bin/aimux</string>
+        <string>--daemon</string>
+        <string>--config</string>
+        <string>/usr/local/etc/aimux/config.json</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/usr/local/var/lib/aimux</string>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>KeepAlive</key>
+    <dict>
+        <key>SuccessfulExit</key>
+        <false/>
+        <key>NetworkState</key>
+        <true/>
+    </dict>
+
+    <key>StandardOutPath</key>
+    <string>/usr/local/var/log/aimux/aimux.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/usr/local/var/log/aimux/aimux.error.log</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>AIMUX_CONFIG_FILE</key>
+        <string>/usr/local/etc/aimux/config.json</string>
+        <key>AIMUX_LOG_DIR</key>
+        <string>/usr/local/var/log/aimux</string>
+        <key>AIMUX_DAEMON</key>
+        <string>true</string>
+        <key>AIMUX_ENVIRONMENT</key>
+        <string>production</string>
+    </dict>
+
+    <key>UserName</key>
+    <string>_aimux</string>
+
+    <key>GroupName</key>
+    <string>_aimux</string>
+
+    <key>HardResourceLimits</key>
+    <dict>
+        <key>NumberOfFiles</key>
+        <integer>65536</integer>
+        <key>Memory</key>
+        <integer>1073741824</integer> <!-- 1GB -->
+    </dict>
+
+    <key>SoftResourceLimits</key>
+    <dict>
+        <key>NumberOfFiles</key>
+        <integer>32768</integer>
+        <key>Memory</key>
+        <integer>536870912</integer> <!-- 512MB -->
+    </dict>
+
+    <key>StartInterval</key>
+    <integer>10</integer>
+
+    <key>ThrottleInterval</key>
+    <integer>60</integer>
+
+    <key>ProcessType</key>
+    <string>Interactive</string>
+</dict>
+</plist>

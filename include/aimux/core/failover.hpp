@@ -4,6 +4,7 @@
 #include <vector>
 #include <chrono>
 #include <mutex>
+#include <random>
 #include <nlohmann/json.hpp>
 
 namespace aimux {
@@ -97,6 +98,8 @@ public:
         ROUND_ROBIN,
         LEAST_CONNECTIONS,
         FASTEST_RESPONSE,
+        WEIGHTED_ROUND_ROBIN,
+        ADAPTIVE,
         RANDOM
     };
     
@@ -148,6 +151,7 @@ private:
     std::vector<ProviderMetrics> provider_metrics_;
     size_t round_robin_index_ = 0;
     mutable std::mutex mutex_;
+    std::mt19937 rng_;
     
     /**
      * @brief Update average response time
@@ -163,13 +167,17 @@ private:
      */
     ProviderMetrics* find_metrics(const std::string& provider);
     
-    /**
-     * @brief Helper methods for different strategies
-     */
+    // Load balancing strategy implementations
     std::string select_round_robin(const std::vector<std::string>& available_providers);
     std::string select_least_connections(const std::vector<std::string>& available_providers);
     std::string select_fastest_response(const std::vector<std::string>& available_providers);
+    std::string select_weighted_round_robin(const std::vector<std::string>& available_providers);
+    std::string select_adaptive(const std::vector<std::string>& available_providers);
     std::string select_random(const std::vector<std::string>& available_providers);
+    
+    /**
+     * @brief Helper methods for different strategies
+     */
     
     /**
      * @brief Convert strategy enum to string
