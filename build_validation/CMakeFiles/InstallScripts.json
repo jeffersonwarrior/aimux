@@ -1,7 +1,0 @@
-{
-	"InstallScripts" : 
-	[
-		"/home/agent/aimux2/aimux/build_validation/cmake_install.cmake"
-	],
-	"Parallel" : false
-}
