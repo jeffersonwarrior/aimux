@@ -1,4 +1,9 @@
 {
+  "server": {
+    "bind_address": "0.0.0.0",
+    "port": 8080,
+    "webui_enabled": true
+  },
   "default_provider": "synthetic",
   "thinking_provider": "synthetic",
   "vision_provider": "synthetic",
