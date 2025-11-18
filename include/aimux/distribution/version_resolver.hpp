@@ -135,6 +135,15 @@ struct DependencyNode {
 
     nlohmann::json to_json() const;
     static DependencyNode from_json(const nlohmann::json& j);
+
+    // Equality operator for testing
+    bool operator==(const DependencyNode& other) const {
+        return plugin_id == other.plugin_id &&
+               selected_version == other.selected_version &&
+               dependencies == other.dependencies &&
+               depth == other.depth &&
+               is_optional == other.is_optional;
+    }
 };
 
 /**
@@ -158,6 +167,16 @@ struct DependencyConflict {
 
     std::string to_string() const;
     nlohmann::json to_json() const;
+
+    // Equality operator for testing
+    bool operator==(const DependencyConflict& other) const {
+        return type == other.type &&
+               conflicting_plugins == other.conflicting_plugins &&
+               dependency_id == other.dependency_id &&
+               description == other.description &&
+               conflicting_versions == other.conflicting_versions &&
+               suggested_resolution == other.suggested_resolution;
+    }
 };
 
 /**
