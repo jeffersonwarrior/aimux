@@ -95,4 +95,4 @@ perf.data*
 
 # Rust artifacts (if any)
 target/
-Cargo.lock
+Cargo.lockcrow_repo/
