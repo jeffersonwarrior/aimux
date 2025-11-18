@@ -357,7 +357,7 @@ ValidationResult StartupValidator::validate_providers(
 
 ValidationResult StartupValidator::validate_security(
     const SecurityConfig& security,
-    const std::string& /* environment */) {
+    const std::string& environment) {
 
     ValidationResult result;
     result.is_valid = true;
@@ -569,7 +569,7 @@ int StartupValidator::calculate_severity_score(
 
 bool StartupValidator::can_proceed_with_startup(
     const ValidationResult& result,
-    const std::string& /* environment */) {
+    const std::string& environment) {
 
     // In production, be more strict
     if (environment == "production") {
@@ -741,7 +741,7 @@ bool StartupValidator::validate_path_security(const std::string& path) {
 }
 
 bool StartupValidator::validate_log_level_security(const std::string& log_level,
-                                                  const std::string& /* environment */) {
+                                                  const std::string& environment) {
     if (!validation::isValidLogLevel(log_level)) {
         return false;
     }
@@ -757,7 +757,7 @@ bool StartupValidator::validate_log_level_security(const std::string& log_level,
 }
 
 bool StartupValidator::validate_encryption_settings(const SecurityConfig& security,
-                                                   const std::string& /* environment */) {
+                                                   const std::string& environment) {
     // In production, encryption should be enabled
     if (environment == "production") {
         if (!security.api_key_encryption) {

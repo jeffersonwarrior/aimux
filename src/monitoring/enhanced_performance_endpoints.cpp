@@ -1,5 +1,5 @@
 #include "aimux/monitoring/performance_monitor.hpp"
-#include "logging/production_logger.h"
+#include "aimux/logging/logger.hpp"
 #include <nlohmann/json.hpp>
 #include <thread>
 #include <chrono>

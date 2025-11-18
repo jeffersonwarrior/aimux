@@ -13,6 +13,8 @@
 #include <atomic>
 #include <thread>
 #include "aimux/security/secure_config.h"
+#include "aimux/prettifier/prettifier_plugin.hpp"
+#include "aimux/prettifier/toon_formatter.hpp"
 
 namespace aimux {
 namespace config {
@@ -205,6 +207,69 @@ struct RateLimitingConfig {
     }
 };
 
+struct PrettifierConfig {
+    bool enabled = true;
+    std::string default_prettifier = "toon";
+    std::string plugin_directory = "./plugins";
+    bool auto_discovery = true;
+    int cache_ttl_minutes = 60;
+    size_t max_cache_size = 1000;
+    bool performance_monitoring = true;
+    std::map<std::string, std::string> provider_mappings;
+    aimux::prettifier::ToonFormatter::Config toon_config;
+
+    nlohmann::json toJson() const {
+        nlohmann::json j;
+        j["enabled"] = enabled;
+        j["default_prettifier"] = default_prettifier;
+        j["plugin_directory"] = plugin_directory;
+        j["auto_discovery"] = auto_discovery;
+        j["cache_ttl_minutes"] = cache_ttl_minutes;
+        j["max_cache_size"] = max_cache_size;
+        j["performance_monitoring"] = performance_monitoring;
+        j["provider_mappings"] = provider_mappings;
+
+        // TOON config
+        nlohmann::json toon_json;
+        toon_json["include_metadata"] = toon_config.include_metadata;
+        toon_json["include_tools"] = toon_config.include_tools;
+        toon_json["include_thinking"] = toon_config.include_thinking;
+        toon_json["preserve_timestamps"] = toon_config.preserve_timestamps;
+        toon_json["enable_compression"] = toon_config.enable_compression;
+        toon_json["max_content_length"] = toon_config.max_content_length;
+        toon_json["indent"] = toon_config.indent;
+        j["toon_config"] = toon_json;
+
+        return j;
+    }
+
+    static PrettifierConfig fromJson(const nlohmann::json& j) {
+        PrettifierConfig config;
+        config.enabled = j.value("enabled", true);
+        config.default_prettifier = j.value("default_prettifier", "toon");
+        config.plugin_directory = j.value("plugin_directory", "./plugins");
+        config.auto_discovery = j.value("auto_discovery", true);
+        config.cache_ttl_minutes = j.value("cache_ttl_minutes", 60);
+        config.max_cache_size = j.value("max_cache_size", static_cast<size_t>(1000));
+        config.performance_monitoring = j.value("performance_monitoring", true);
+        config.provider_mappings = j.value("provider_mappings", std::map<std::string, std::string>{});
+
+        // TOON config
+        if (j.contains("toon_config")) {
+            const auto& toon_json = j["toon_config"];
+            config.toon_config.include_metadata = toon_json.value("include_metadata", true);
+            config.toon_config.include_tools = toon_json.value("include_tools", true);
+            config.toon_config.include_thinking = toon_json.value("include_thinking", true);
+            config.toon_config.preserve_timestamps = toon_json.value("preserve_timestamps", true);
+            config.toon_config.enable_compression = toon_json.value("enable_compression", false);
+            config.toon_config.max_content_length = toon_json.value("max_content_length", static_cast<size_t>(1000000));
+            config.toon_config.indent = toon_json.value("indent", "    ");
+        }
+
+        return config;
+    }
+};
+
 struct SecurityConfig {
     bool api_key_encryption = true;
     bool audit_logging = true;
@@ -279,6 +344,7 @@ struct ProductionConfig {
     DaemonConfig daemon;
     SecurityConfig security;
     SystemConfig system;
+    PrettifierConfig prettifier;
 
     nlohmann::json toJson(bool encryptApiKeys = true) const {
         nlohmann::json j;
@@ -302,6 +368,7 @@ struct ProductionConfig {
         j["daemon"] = daemon.toJson();
         j["security"] = security.toJson();
         j["system"] = system.toJson();
+        j["prettifier"] = prettifier.toJson();
         return j;
     }
 
@@ -335,6 +402,7 @@ struct ProductionConfig {
         config.daemon = DaemonConfig::fromJson(j.value("daemon", nlohmann::json::object()));
         config.security = SecurityConfig::fromJson(j.value("security", nlohmann::json::object()));
         config.system = SystemConfig::fromJson(j.value("system", nlohmann::json::object()));
+        config.prettifier = PrettifierConfig::fromJson(j.value("prettifier", nlohmann::json::object()));
 
         return config;
     }
@@ -435,6 +503,7 @@ namespace validation {
     std::vector<std::string> validateWebUIConfig(const WebUIConfig& config);
     std::vector<std::string> validateSecurityConfig(const SecurityConfig& config);
     std::vector<std::string> validateDaemonConfig(const DaemonConfig& config);
+    std::vector<std::string> validatePrettifierConfig(const PrettifierConfig& config);
     nlohmann::json validateConfigWithSchema(const nlohmann::json& config);
 }
 

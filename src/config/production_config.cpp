@@ -1,6 +1,6 @@
 #include "config/production_config.h"
 #include "aimux/config/startup_validator.hpp"
-#include "logging/production_logger.h"
+#include "aimux/logging/logger.hpp"
 #include <fstream>
 #include <sstream>
 #include <algorithm>
@@ -8,6 +8,7 @@
 #include <cstdlib>
 #include <filesystem>
 #include <cstdio>
+#include <iostream>
 #include <cstring>
 
 namespace aimux {
@@ -31,7 +32,7 @@ bool ProductionConfigManager::loadConfig(const std::string& configPath, bool cre
     try {
         if (!std::filesystem::exists(configPath)) {
             if (createIfMissing) {
-                AIMUX_LOG_INFO("Creating default config at: " + configPath);
+                AIMUX_INFO("Creating default config at: " + configPath);
                 config_ = createProductionTemplate();
 
                 // Ensure directory exists
@@ -59,7 +60,7 @@ bool ProductionConfigManager::loadConfig(const std::string& configPath, bool cre
             auto configJson = nlohmann::json::parse(buffer.str());
             config_ = ProductionConfig::fromJson(configJson);
 
-            AIMUX_LOG_INFO("Loaded configuration from: " + configPath);
+            AIMUX_INFO("Loaded configuration from: " + configPath);
         }
 
         currentConfigPath_ = configPath;
@@ -90,7 +91,7 @@ bool ProductionConfigManager::loadConfig(const std::string& configPath, bool cre
         return true;
 
     } catch (const std::exception& e) {
-        AIMUX_LOG_ERROR("Failed to load config: " + std::string(e.what()));
+        AIMUX_ERROR("Failed to load config: " + std::string(e.what()));
         return false;
     }
 }
@@ -125,11 +126,11 @@ bool ProductionConfigManager::saveConfig(const std::string& configPath) {
             std::filesystem::perms::owner_read | std::filesystem::perms::owner_write,
             std::filesystem::perm_options::replace);
 
-        AIMUX_LOG_INFO("Saved configuration to: " + path);
+        AIMUX_INFO("Saved configuration to: " + path);
         return true;
 
     } catch (const std::exception& e) {
-        AIMUX_LOG_ERROR("Failed to save config: " + std::string(e.what()));
+        AIMUX_ERROR("Failed to save config: " + std::string(e.what()));
         return false;
     }
 }
@@ -191,7 +192,7 @@ void ProductionConfigManager::loadEnvironmentOverrides() {
         }
     }
 
-    AIMUX_LOG_DEBUG("Applied environment overrides");
+    AIMUX_DEBUG("Applied environment overrides");
 }
 
 std::vector<std::string> ProductionConfigManager::validateConfig() const {
@@ -211,6 +212,10 @@ std::vector<std::string> ProductionConfigManager::validateConfig() const {
     if (!validateWebUI(config_.webui)) {
         errors.push_back("WebUI configuration validation failed");
     }
+
+    // Validate prettifier config
+    auto prettifierErrors = validation::validatePrettifierConfig(config_.prettifier);
+    errors.insert(errors.end(), prettifierErrors.begin(), prettifierErrors.end());
 
     // Validate security config
     if (!validateSecurity(config_.security)) {
@@ -328,6 +333,32 @@ ProductionConfig ProductionConfigManager::createProductionTemplate() const {
         .log_dir = "/var/log/aimux",
         .backup_dir = "/var/backups/aimux",
         .backup_retention_days = 30
+    };
+
+    // Prettifier configuration
+    config.prettifier = {
+        .enabled = true,
+        .default_prettifier = "toon",
+        .plugin_directory = "./plugins",
+        .auto_discovery = true,
+        .cache_ttl_minutes = 60,
+        .max_cache_size = 1000,
+        .performance_monitoring = true,
+        .provider_mappings = {
+            {"cerebras", "toon"},
+            {"openai", "toon"},
+            {"anthropic", "toon"},
+            {"synthetic", "toon"}
+        },
+        .toon_config = {
+            .include_metadata = true,
+            .include_tools = true,
+            .include_thinking = true,
+            .preserve_timestamps = true,
+            .enable_compression = false,
+            .max_content_length = 1000000,
+            .indent = "    "
+        }
     };
 
     return config;
@@ -827,6 +858,8 @@ std::vector<std::string> validateSystemConfig(const SystemConfig& config) {
                         std::to_string(config.max_concurrent_requests));
     }
 
+    // These fields don't exist in SystemConfig - commenting out until added
+    /*
     if (config.request_timeout_ms < 100 || config.request_timeout_ms > 300000) {
         errors.push_back("Invalid request_timeout_ms (must be 100-300000ms): " +
                         std::to_string(config.request_timeout_ms));
@@ -836,6 +869,7 @@ std::vector<std::string> validateSystemConfig(const SystemConfig& config) {
         errors.push_back("Invalid health_check_interval_ms (must be 1000-300000ms): " +
                         std::to_string(config.health_check_interval_ms));
     }
+    */
 
     // Path validation with enhanced checking
     if (!isValidPath(config.log_dir)) {
@@ -848,10 +882,12 @@ std::vector<std::string> validateSystemConfig(const SystemConfig& config) {
                         " (must not contain '..' and be < 4096 chars)");
     }
 
-    // Config file format validation
+    // Config file format validation - field doesn't exist in SystemConfig
+    /*
     if (config.config_format != "json" && config.config_format != "yaml" && config.config_format != "toml") {
         errors.push_back("Invalid config_format (must be json, yaml, or toml): " + config.config_format);
     }
+    */
 
     return errors;
 }
@@ -947,7 +983,8 @@ std::vector<std::string> validateWebUIConfig(const WebUIConfig& config) {
 std::vector<std::string> validateSecurityConfig(const SecurityConfig& config) {
     std::vector<std::string> errors;
 
-    // JWT settings validation
+    // JWT and TLS settings validation - fields don't exist in SecurityConfig
+    /*
     if (config.jwt_enabled) {
         if (config.jwt_secret.empty()) {
             errors.push_back("JWT secret required when JWT is enabled");
@@ -963,7 +1000,6 @@ std::vector<std::string> validateSecurityConfig(const SecurityConfig& config) {
         }
     }
 
-    // SSL/TLS settings validation
     if (config.tls_enabled) {
         if (config.cert_file.empty()) {
             errors.push_back("SSL certificate file required when TLS is enabled");
@@ -977,6 +1013,7 @@ std::vector<std::string> validateSecurityConfig(const SecurityConfig& config) {
             errors.push_back("Invalid SSL key file path: " + config.key_file);
         }
     }
+    */
 
     // Rate limiting validation
     if (config.rate_limiting.enabled) {
@@ -1024,6 +1061,50 @@ std::vector<std::string> validateDaemonConfig(const DaemonConfig& config) {
     return errors;
 }
 
+std::vector<std::string> validatePrettifierConfig(const PrettifierConfig& config) {
+    std::vector<std::string> errors;
+
+    // Default prettifier validation
+    if (config.default_prettifier.empty() || config.default_prettifier.length() > 50) {
+        errors.push_back("Invalid default_prettifier (must be 1-50 characters): " + config.default_prettifier);
+    }
+
+    // Plugin directory validation
+    if (!isValidPath(config.plugin_directory)) {
+        errors.push_back("Invalid plugin directory path: " + config.plugin_directory);
+    }
+
+    // Cache TTL validation (1-1440 minutes)
+    if (config.cache_ttl_minutes < 1 || config.cache_ttl_minutes > 1440) {
+        errors.push_back("Invalid cache_ttl_minutes (must be 1-1440): " +
+                        std::to_string(config.cache_ttl_minutes));
+    }
+
+    // Max cache size validation (10-10000 entries)
+    if (config.max_cache_size < 10 || config.max_cache_size > 10000) {
+        errors.push_back("Invalid max_cache_size (must be 10-10000): " +
+                        std::to_string(config.max_cache_size));
+    }
+
+    // TOON config validation
+    if (config.toon_config.max_content_length > 10000000) {  // 10MB max
+        errors.push_back("TOON max_content_length too large (max 10MB): " +
+                        std::to_string(config.toon_config.max_content_length));
+    }
+
+    // Provider mappings validation
+    for (const auto& [provider, prettifier] : config.provider_mappings) {
+        if (provider.empty() || provider.length() > 50) {
+            errors.push_back("Invalid provider name in provider_mappings: " + provider);
+        }
+        if (prettifier.empty() || prettifier.length() > 50) {
+            errors.push_back("Invalid prettifier name in provider_mappings: " + prettifier);
+        }
+    }
+
+    return errors;
+}
+
 // JSON Schema validation for the entire configuration
 nlohmann::json validateConfigWithSchema(const nlohmann::json& config) {
     std::vector<std::string> errors;
@@ -1041,7 +1122,7 @@ nlohmann::json validateConfigWithSchema(const nlohmann::json& config) {
 
     // Required sections validation
     const std::vector<std::string> required_sections = {
-        "providers", "system", "webui", "security", "daemon"
+        "providers", "system", "webui", "security", "daemon", "prettifier"
     };
 
     for (const auto& section : required_sections) {
@@ -1149,6 +1230,57 @@ nlohmann::json validateConfigWithSchema(const nlohmann::json& config) {
         if (webui.contains("cors_origins") && !webui["cors_origins"].is_array()) {
             result["valid"] = false;
             result["errors"].push_back("WebUI 'cors_origins' field must be array");
+        }
+    }
+
+    // Prettifier section validation
+    if (config.contains("prettifier") && config["prettifier"].is_object()) {
+        const auto& prettifier = config["prettifier"];
+
+        if (prettifier.contains("enabled") && !prettifier["enabled"].is_boolean()) {
+            result["valid"] = false;
+            result["errors"].push_back("Prettifier 'enabled' field must be boolean");
+        }
+
+        if (prettifier.contains("default_prettifier") && !prettifier["default_prettifier"].is_string()) {
+            result["valid"] = false;
+            result["errors"].push_back("Prettifier 'default_prettifier' field must be string");
+        }
+
+        if (prettifier.contains("plugin_directory") && !prettifier["plugin_directory"].is_string()) {
+            result["valid"] = false;
+            result["errors"].push_back("Prettifier 'plugin_directory' field must be string");
+        }
+
+        if (prettifier.contains("auto_discovery") && !prettifier["auto_discovery"].is_boolean()) {
+            result["valid"] = false;
+            result["errors"].push_back("Prettifier 'auto_discovery' field must be boolean");
+        }
+
+        if (prettifier.contains("cache_ttl_minutes") && !prettifier["cache_ttl_minutes"].is_number_integer()) {
+            result["valid"] = false;
+            result["errors"].push_back("Prettifier 'cache_ttl_minutes' field must be integer");
+        }
+
+        if (prettifier.contains("max_cache_size") && !prettifier["max_cache_size"].is_number_integer()) {
+            result["valid"] = false;
+            result["errors"].push_back("Prettifier 'max_cache_size' field must be integer");
+        }
+
+        if (prettifier.contains("performance_monitoring") && !prettifier["performance_monitoring"].is_boolean()) {
+            result["valid"] = false;
+            result["errors"].push_back("Prettifier 'performance_monitoring' field must be boolean");
+        }
+
+        if (prettifier.contains("provider_mappings") && !prettifier["provider_mappings"].is_object()) {
+            result["valid"] = false;
+            result["errors"].push_back("Prettifier 'provider_mappings' field must be object");
+        }
+
+        // TOON config validation
+        if (prettifier.contains("toon_config") && !prettifier["toon_config"].is_object()) {
+            result["valid"] = false;
+            result["errors"].push_back("Prettifier 'toon_config' field must be object");
         }
     }
 

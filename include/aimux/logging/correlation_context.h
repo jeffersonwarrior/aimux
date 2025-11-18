@@ -6,6 +6,8 @@
 #include <mutex>
 #include <memory>
 #include <stack>
+#include <deque>
+#include <nlohmann/json.hpp>
 
 namespace aimux {
 namespace logging {

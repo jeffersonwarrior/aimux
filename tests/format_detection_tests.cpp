@@ -304,7 +304,8 @@ void test_confidence_calculation(TestResults& results) {
     DetectionResult high_conf = detector.detect_format(
         json{
             {"model", "claude-3-5-sonnet"},
-            {"messages", json::array({{"role", "user"}, {"content", "test"}}})}
+            {"messages", {{"role", "user"}, {"content", "test"}}}
+        }
         },
         {
             {"anthropic-version", "2023-06-01"},

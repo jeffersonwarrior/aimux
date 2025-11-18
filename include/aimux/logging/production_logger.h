@@ -130,20 +130,12 @@ private:
     void openFile();
 };
 
-// Correlation context for request tracing
-class CorrelationContext {
-public:
-    static CorrelationContext& getInstance();
-
-    void setCorrelationId(const std::string& id);
-    std::string getCurrentCorrelationId() const;
-    void clear();
-    nlohmann::json toJson() const;
-
-private:
-    std::string correlationId_;
-    mutable std::mutex mutex_;
-};
+// Use correlation_context declarations only
+namespace aimux {
+namespace logging {
+class CorrelationContext;
+}
+}
 
 // Main production logger (singleton)
 class ProductionLogger {
@@ -202,32 +194,8 @@ private:
     std::vector<LogEntry> batch_;
 };
 
-// Logger wrapper class for easy usage
-class Logger {
-public:
-    explicit Logger(const std::string& category = "aimux", const std::string& correlationId = "");
-
-    // Set correlation ID for this logger instance
-    void setCorrelationId(const std::string& id);
-
-    // Logging methods
-    void trace(const std::string& message, const nlohmann::json& extra = {});
-    void debug(const std::string& message, const nlohmann::json& extra = {});
-    void info(const std::string& message, const nlohmann::json& extra = {});
-    void warn(const std::string& message, const nlohmann::json& extra = {});
-    void error(const std::string& message, const nlohmann::json& extra = {});
-    void fatal(const std::string& message, const nlohmann::json& extra = {});
-
-    // Internal logging method
-    void log(LogLevel level, const std::string& message, const nlohmann::json& extra = {},
-             const std::string& explicitCorrelationId = "");
-
-private:
-    std::string category_;
-    std::string correlationId_;
-
-    std::string getEffectiveCorrelationId(const std::string& explicitCorrelationId) const;
-};
+// Use Logger from logger.hpp to avoid conflicts
+#include "aimux/logging/logger.hpp"
 
 } // namespace logging
 } // namespace aimux

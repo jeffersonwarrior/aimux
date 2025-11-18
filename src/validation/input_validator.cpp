@@ -8,6 +8,7 @@
 #include <fstream>
 #include <sys/statvfs.h>
 #include <sys/resource.h>
+#include <numeric>
 
 namespace aimux {
 namespace validation {
@@ -666,105 +667,207 @@ JsonSchemaValidation::Config InputValidator::Presets::createApiRequestSchema() {
 
     schema["properties"] = properties;
 
-    return {
-        "api_request_schema",
-        "Standard API request validation schema",
-        schema,
-        true,
-        false,
-        {
-            {"endpoint", "API endpoint path"},
-            {"method", "HTTP method"},
-            {"api_key", "Authentication key"},
-            {"data", "Request payload data"}
-        }
+    JsonSchemaValidation::Config config;
+    config.name = "api_request_schema";
+    config.description = "Standard API request validation schema";
+    config.schema = schema;
+    config.strict_type_checking = true;
+    config.allow_unknown_fields = false;
+    config.field_descriptions = {
+        {"endpoint", "API endpoint path"},
+        {"method", "HTTP method"},
+        {"api_key", "Authentication key"},
+        {"data", "Request payload data"}
     };
+    return config;
 }
 
 JsonSchemaValidation::Config InputValidator::Presets::createConfigurationSchema() {
-    return {
-        "config_schema",
-        "Configuration validation schema",
-        {
-            {"type", "object"},
-            {"properties", {
-                {"provider", {
-                    {"type", "string"},
-                    {"enum", nlohmann::json::array({"cerebras", "zai", "anthropic"})}
-                }},
-                {"model", {
-                    {"type", "string"},
-                    {"minLength", 1}
-                }},
-                {"api_key", {
-                    {"type", "string"},
-                    {"minLength", 16},
-                    {"maxLength", 256}
-                }},
-                {"timeout", {
-                    {"type", "number"},
-                    {"minimum", 100},
-                    {"maximum", 300000}
-                }}
-            }}
-        },
-        true,
-        false,
-        {
-            {"provider", "AI provider name"},
-            {"model", "Model identifier"},
-            {"api_key", "Provider API key"},
-            {"timeout", "Request timeout in milliseconds"}
-        }
+    nlohmann::json schema = nlohmann::json::object();
+    schema["type"] = "object";
+
+    nlohmann::json properties = nlohmann::json::object();
+
+    nlohmann::json provider = nlohmann::json::object();
+    provider["type"] = "string";
+    provider["enum"] = nlohmann::json::array({"cerebras", "zai", "anthropic"});
+    properties["provider"] = provider;
+
+    nlohmann::json model = nlohmann::json::object();
+    model["type"] = "string";
+    model["minLength"] = 1;
+    properties["model"] = model;
+
+    nlohmann::json api_key = nlohmann::json::object();
+    api_key["type"] = "string";
+    api_key["minLength"] = 16;
+    api_key["maxLength"] = 256;
+    properties["api_key"] = api_key;
+
+    nlohmann::json timeout = nlohmann::json::object();
+    timeout["type"] = "number";
+    timeout["minimum"] = 100;
+    timeout["maximum"] = 300000;
+    properties["timeout"] = timeout;
+
+    schema["properties"] = properties;
+
+    JsonSchemaValidation::Config config;
+    config.name = "config_schema";
+    config.description = "Configuration validation schema";
+    config.schema = schema;
+    config.strict_type_checking = true;
+    config.allow_unknown_fields = false;
+    config.field_descriptions = {
+        {"provider", "AI provider name"},
+        {"model", "Model identifier"},
+        {"api_key", "Provider API key"},
+        {"timeout", "Request timeout in milliseconds"}
     };
+    return config;
 }
 
-StringValidation::Config InputValidator::Presets::createUsernameConfig() {
-    return {
-        "username_validation",
-        "Username validation with security constraints",
-        3,  // min_length
-        50, // max_length
-        R"(^[a-zA-Z0-9_-]+$)", // pattern
-        std::vector<std::string>{"admin", "root", "system"}, // forbidden values (example)
-        true, // trim_whitespace
-        false, // lowercase
-        false, // uppercase
-        {}, // custom_validators
-        true, // sanitize_html
-        false // sanitize_sql
+// Preset implementations
+JsonSchemaValidation::Config InputValidator::Presets::createApiRequestSchema()
+{
+    nlohmann::json schema = nlohmann::json::object();
+    schema["type"] = "object";
+    schema["required"] = nlohmann::json::array({"endpoint", "method"});
+
+    nlohmann::json properties = nlohmann::json::object();
+
+    nlohmann::json endpoint = nlohmann::json::object();
+    endpoint["type"] = "string";
+    endpoint["minLength"] = 1;
+    endpoint["maxLength"] = 255;
+    endpoint["pattern"] = R"(^/[\w\-/\.]+)$)";
+    properties["endpoint"] = endpoint;
+
+    nlohmann::json method = nlohmann::json::object();
+    method["type"] = "string";
+    method["enum"] = nlohmann::json::array({"GET", "POST", "PUT", "DELETE", "PATCH"});
+    properties["method"] = method;
+
+    nlohmann::json api_key = nlohmann::json::object();
+    api_key["type"] = "string";
+    api_key["minLength"] = 16;
+    properties["api_key"] = api_key;
+
+    nlohmann::json data = nlohmann::json::object();
+    data["type"] = "object";
+    properties["data"] = data;
+
+    schema["properties"] = properties;
+
+    JsonSchemaValidation::Config config;
+    config.name = "api_request_schema";
+    config.description = "Standard API request validation schema";
+    config.schema = schema;
+    config.strict_type_checking = true;
+    config.allow_unknown_fields = false;
+    config.field_descriptions = {
+        {"endpoint", "API endpoint path"},
+        {"method", "HTTP method"},
+        {"api_key", "Authentication key"},
+        {"data", "Request payload data"}
     };
+    return config;
 }
 
-StringValidation::Config InputValidator::Presets::createApiKeyConfig() {
-    return {
-        "api_key_validation",
-        "API key validation with security checks",
-        16, // min_length
-        256, // max_length
-        "", // pattern (provider-specific)
-        {}, // allowed_values
-        true, // trim_whitespace
-        false, // lowercase
-        false, // uppercase
-        {}, // custom_validators
-        true, // sanitize_html
-        true  // sanitize_sql
+JsonSchemaValidation::Config InputValidator::Presets::createConfigurationSchema()
+{
+    nlohmann::json schema = nlohmann::json::object();
+    schema["type"] = "object";
+
+    nlohmann::json properties = nlohmann::json::object();
+
+    nlohmann::json provider = nlohmann::json::object();
+    provider["type"] = "string";
+    provider["enum"] = nlohmann::json::array({"cerebras", "zai", "anthropic"});
+    properties["provider"] = provider;
+
+    nlohmann::json model = nlohmann::json::object();
+    model["type"] = "string";
+    model["minLength"] = 1;
+    properties["model"] = model;
+
+    nlohmann::json api_key = nlohmann::json::object();
+    api_key["type"] = "string";
+    api_key["minLength"] = 16;
+    api_key["maxLength"] = 256;
+    properties["api_key"] = api_key;
+
+    nlohmann::json timeout = nlohmann::json::object();
+    timeout["type"] = "number";
+    timeout["minimum"] = 100;
+    timeout["maximum"] = 300000;
+    properties["timeout"] = timeout;
+
+    schema["properties"] = properties;
+
+    JsonSchemaValidation::Config config;
+    config.name = "config_schema";
+    config.description = "Configuration validation schema";
+    config.schema = schema;
+    config.strict_type_checking = true;
+    config.allow_unknown_fields = false;
+    config.field_descriptions = {
+        {"provider", "AI provider name"},
+        {"model", "Model identifier"},
+        {"api_key", "Provider API key"},
+        {"timeout", "Request timeout in milliseconds"}
     };
+    return config;
 }
 
-EmailValidation::Config InputValidator::Presets::createStandardEmailConfig() {
-    return {
-        "standard_email_validation",
-        "Standard email validation with security checks",
-        true,  // allow_domain_validation
-        {},    // allowed_domains
-        {"tempmail.org", "10minutemail.com"}, // blocked_domains (examples)
-        false, // check_mx_record
-        true   // require_tld
-    };
+StringValidation::Config InputValidator::Presets::createUsernameConfig()
+{
+    StringValidation::Config config;
+    config.name = "username_validation";
+    config.description = "Username validation with security constraints";
+    config.min_length = 3;
+    config.max_length = 50;
+    config.pattern = R"(^[a-zA-Z0-9_-]+$)";
+    config.allowed_values = {};
+    config.trim_whitespace = true;
+    config.lowercase = false;
+    config.uppercase = false;
+    config.custom_validators = {};
+    config.sanitize_html = true;
+    config.sanitize_sql = false;
+    return config;
 }
 
+StringValidation::Config InputValidator::Presets::createApiKeyConfig()
+{
+    StringValidation::Config config;
+    config.name = "api_key_validation";
+    config.description = "API key validation with security checks";
+    config.min_length = 16;
+    config.max_length = 256;
+    config.pattern = "";
+    config.allowed_values = {};
+    config.trim_whitespace = true;
+    config.lowercase = false;
+    config.uppercase = false;
+    config.custom_validators = {};
+    config.sanitize_html = true;
+    config.sanitize_sql = true;
+    return config;
+}
+
+EmailValidation::Config InputValidator::Presets::createStandardEmailConfig()
+{
+    EmailValidation::Config config;
+    config.name = "standard_email_validation";
+    config.description = "Standard email validation with security checks";
+    config.allow_domain_validation = true;
+    config.allowed_domains = {};
+    config.blocked_domains = {"tempmail.org", "10minutemail.com"};
+    config.check_mx_record = false;
+    config.require_tld = true;
+    return config;
+}
 ValidationContext InputValidator::createProductionContext() {
     ValidationContext context;
     context.strict_mode = true;

@@ -1,108 +1,86 @@
 #include "aimux/logging/logger.hpp"
 #include <iostream>
+#include <fstream>
+#include <sstream>
 #include <iomanip>
 #include <chrono>
+#include <thread>
+#include <mutex>
 #include <unordered_map>
-#include <algorithm>
-#include <ctime>
-#include <sstream>
 
 namespace aimux {
 namespace logging {
 
-// Logger implementation
+// Logger::Impl structure definition
 struct Logger::Impl {
     std::string name;
-    std::ofstream file_stream;
-    LogLevel min_level = LogLevel::INFO;
-    bool console_enabled = true;
-    std::mutex mutex;
-    std::unordered_map<std::string, nlohmann::json> default_fields;
-    nlohmann::json stats;
-    
-    Impl(const std::string& logger_name, const std::string& log_file) 
-        : name(logger_name) {
-        stats["name"] = name;
-        stats["total_logs"] = 0;
-        stats["logs_by_level"] = nlohmann::json::object();
-        
+    std::string log_file;
+    LogLevel level;
+    bool console_enabled;
+    nlohmann::json default_fields;
+
+    Impl(const std::string& name, const std::string& log_file)
+        : name(name), level(LogLevel::INFO), console_enabled(true) {
         if (!log_file.empty()) {
-            file_stream.open(log_file, std::ios::app);
-            if (!file_stream.is_open()) {
-                std::cerr << "Warning: Could not open log file: " << log_file << std::endl;
-            }
+            this->log_file = log_file;
         }
-    }
-    
-    void write_to_console(const nlohmann::json& entry) {
-        std::cout << entry.dump(-1) << std::endl;
-    }
-    
-    void write_to_file(const nlohmann::json& entry) {
-        if (file_stream.is_open()) {
-            file_stream << entry.dump(-1) << std::endl;
-            file_stream.flush();
-        }
-    }
-    
-    void update_stats(LogLevel level) {
-        stats["total_logs"] = stats["total_logs"].get<int>() + 1;
-        std::string level_str = LogUtils::level_to_string(level);
-        if (!stats["logs_by_level"].contains(level_str)) {
-            stats["logs_by_level"][level_str] = 0;
-        }
-        stats["logs_by_level"][level_str] = stats["logs_by_level"][level_str].get<int>() + 1;
     }
 };
 
-Logger::Logger(const std::string& name, const std::string& log_file) 
-    : pImpl(std::make_unique<Impl>(name, log_file)) {}
+// LoggerRegistry implementation according to header
+std::shared_ptr<Logger> LoggerRegistry::get_logger(const std::string& name, const std::string& log_file) {
+    static std::unordered_map<std::string, std::shared_ptr<Logger>> loggers;
+    static std::mutex mutex;
+
+    std::lock_guard<std::mutex> lock(mutex);
+
+    auto it = loggers.find(name);
+    if (it != loggers.end()) {
+        return it->second;
+    }
+
+    // Create new logger if not found
+    auto logger = std::make_shared<Logger>(name, log_file);
+    loggers[name] = logger;
+    return logger;
+}
+
+void LoggerRegistry::remove_logger(const std::string& name) {
+    static std::unordered_map<std::string, std::shared_ptr<Logger>> loggers;
+    static std::mutex mutex;
+
+    std::lock_guard<std::mutex> lock(mutex);
+    loggers.erase(name);
+}
+
+// LogUtils implementation
+LogLevel LogUtils::string_to_level(const std::string& level_str) {
+    if (level_str == "TRACE") return LogLevel::TRACE;
+    if (level_str == "DEBUG") return LogLevel::DEBUG;
+    if (level_str == "INFO") return LogLevel::INFO;
+    if (level_str == "WARN") return LogLevel::WARN;
+    if (level_str == "ERROR") return LogLevel::ERROR;
+    if (level_str == "FATAL") return LogLevel::FATAL;
+    return LogLevel::INFO;
+}
+
+// Logger implementation
+Logger::Logger(const std::string& name, const std::string& log_file)
+    : pImpl(std::make_unique<Impl>(name, log_file)) {
+}
 
 Logger::~Logger() = default;
 
 void Logger::set_level(LogLevel level) {
-    std::lock_guard<std::mutex> lock(pImpl->mutex);
-    pImpl->min_level = level;
+    pImpl->level = level;
 }
 
 void Logger::set_console_enabled(bool enabled) {
-    std::lock_guard<std::mutex> lock(pImpl->mutex);
     pImpl->console_enabled = enabled;
 }
 
 void Logger::add_default_field(const std::string& key, const nlohmann::json& value) {
-    std::lock_guard<std::mutex> lock(pImpl->mutex);
     pImpl->default_fields[key] = value;
-}
-
-void Logger::remove_default_field(const std::string& key) {
-    std::lock_guard<std::mutex> lock(pImpl->mutex);
-    pImpl->default_fields.erase(key);
-}
-
-void Logger::log(LogLevel level, const std::string& message, const nlohmann::json& data) {
-    if (level < pImpl->min_level) {
-        return;
-    }
-    
-    std::lock_guard<std::mutex> lock(pImpl->mutex);
-    
-    nlohmann::json entry = LogUtils::create_log_entry(level, message, pImpl->name, data);
-    
-    // Add default fields
-    for (const auto& field : pImpl->default_fields) {
-        entry[field.first] = field.second;
-    }
-    
-    // Write outputs
-    if (pImpl->console_enabled) {
-        pImpl->write_to_console(entry);
-    }
-    
-    pImpl->write_to_file(entry);
-    
-    // Update statistics
-    pImpl->update_stats(level);
 }
 
 void Logger::trace(const std::string& message, const nlohmann::json& data) {
@@ -130,14 +108,57 @@ void Logger::fatal(const std::string& message, const nlohmann::json& data) {
 }
 
 nlohmann::json Logger::get_statistics() const {
-    std::lock_guard<std::mutex> lock(pImpl->mutex);
-    return pImpl->stats;
+    nlohmann::json stats;
+    stats["logger_name"] = pImpl->name;
+    stats["log_file"] = pImpl->log_file;
+    stats["level"] = static_cast<int>(pImpl->level);
+    stats["console_enabled"] = pImpl->console_enabled;
+    return stats;
 }
 
 void Logger::flush() {
-    std::lock_guard<std::mutex> lock(pImpl->mutex);
-    if (pImpl->file_stream.is_open()) {
-        pImpl->file_stream.flush();
+    // For simple implementation, just flush stdout
+    if (pImpl->console_enabled) {
+        std::cout.flush();
+    }
+}
+
+void Logger::log(LogLevel level, const std::string& message, const nlohmann::json& data) {
+    if (level < pImpl->level) {
+        return;
+    }
+
+    // Create log entry
+    nlohmann::json log_entry;
+    log_entry["timestamp"] = get_timestamp();
+    log_entry["level"] = static_cast<int>(level);
+    log_entry["level_name"] = level_to_string(level);
+    log_entry["message"] = message;
+    log_entry["logger"] = pImpl->name;
+
+    // Merge default fields
+    for (const auto& [key, value] : pImpl->default_fields.items()) {
+        log_entry[key] = value;
+    }
+
+    // Merge user data
+    if (!data.empty()) {
+        log_entry["data"] = data;
+    }
+
+    // Output log entry
+    std::string log_line = log_entry.dump();
+
+    if (pImpl->console_enabled) {
+        std::cout << log_line << std::endl;
+    }
+
+    if (!pImpl->log_file.empty()) {
+        std::ofstream file(pImpl->log_file, std::ios::app);
+        if (file.is_open()) {
+            file << log_line << std::endl;
+            file.close();
+        }
     }
 }
 
@@ -158,188 +179,12 @@ std::string Logger::get_timestamp() const {
     auto time_t = std::chrono::system_clock::to_time_t(now);
     auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
         now.time_since_epoch()) % 1000;
-    
-    std::ostringstream oss;
-    oss << std::put_time(std::gmtime(&time_t), "%Y-%m-%dT%H:%M:%S");
-    oss << '.' << std::setfill('0') << std::setw(3) << ms.count() << "Z";
-    return oss.str();
-}
 
-// LoggerRegistry implementation
-std::mutex LoggerRegistry::mutex_;
-std::unordered_map<std::string, std::shared_ptr<Logger>> LoggerRegistry::loggers_;
-
-std::shared_ptr<Logger> LoggerRegistry::get_logger(const std::string& name, const std::string& log_file) {
-    std::lock_guard<std::mutex> lock(mutex_);
-    
-    auto it = loggers_.find(name);
-    if (it != loggers_.end()) {
-        return it->second;
-    }
-    
-    auto logger = std::make_shared<Logger>(name, log_file);
-    loggers_[name] = logger;
-    return logger;
-}
-
-void LoggerRegistry::remove_logger(const std::string& name) {
-    std::lock_guard<std::mutex> lock(mutex_);
-    loggers_.erase(name);
-}
-
-std::vector<std::string> LoggerRegistry::get_logger_names() {
-    std::lock_guard<std::mutex> lock(mutex_);
-    
-    std::vector<std::string> names;
-    for (const auto& pair : loggers_) {
-        names.push_back(pair.first);
-    }
-    return names;
-}
-
-void LoggerRegistry::set_global_level(LogLevel level) {
-    std::lock_guard<std::mutex> lock(mutex_);
-    
-    for (auto& pair : loggers_) {
-        pair.second->set_level(level);
-    }
-}
-
-void LoggerRegistry::flush_all() {
-    std::lock_guard<std::mutex> lock(mutex_);
-    
-    for (auto& pair : loggers_) {
-        pair.second->flush();
-    }
-}
-
-// LogUtils implementation
-LogLevel LogUtils::string_to_level(const std::string& level_str) {
-    std::string upper_str = level_str;
-    std::transform(upper_str.begin(), upper_str.end(), upper_str.begin(), ::toupper);
-    
-    if (upper_str == "TRACE") return LogLevel::TRACE;
-    if (upper_str == "DEBUG") return LogLevel::DEBUG;
-    if (upper_str == "INFO") return LogLevel::INFO;
-    if (upper_str == "WARN" || upper_str == "WARNING") return LogLevel::WARN;
-    if (upper_str == "ERROR") return LogLevel::ERROR;
-    if (upper_str == "FATAL") return LogLevel::FATAL;
-    
-    return LogLevel::INFO; // Default
-}
-
-LogLevel LogUtils::parse_env_level(const std::string& env_var, LogLevel default_level) {
-    const char* env_value = std::getenv(env_var.c_str());
-    if (!env_value) {
-        return default_level;
-    }
-    
-    return string_to_level(std::string(env_value));
-}
-
-nlohmann::json LogUtils::create_log_entry(
-    LogLevel level,
-    const std::string& message,
-    const std::string& logger_name,
-    const nlohmann::json& data) {
-    
-    nlohmann::json entry;
-    entry["timestamp"] = get_current_timestamp();
-    entry["level"] = level_to_string(level);
-    entry["logger"] = logger_name;
-    entry["message"] = message;
-    
-    if (!data.empty()) {
-        entry["data"] = data;
-    }
-    
-    return entry;
-}
-
-std::string LogUtils::level_to_string(LogLevel level) {
-    switch (level) {
-        case LogLevel::TRACE: return "TRACE";
-        case LogLevel::DEBUG: return "DEBUG";
-        case LogLevel::INFO: return "INFO";
-        case LogLevel::WARN: return "WARN";
-        case LogLevel::ERROR: return "ERROR";
-        case LogLevel::FATAL: return "FATAL";
-        default: return "UNKNOWN";
-    }
-}
-
-std::string LogUtils::get_current_timestamp() {
-    auto now = std::chrono::system_clock::now();
-    auto time_t = std::chrono::system_clock::to_time_t(now);
-    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-        now.time_since_epoch()) % 1000;
-    
-    std::ostringstream oss;
-    oss << std::put_time(std::gmtime(&time_t), "%Y-%m-%dT%H:%M:%S");
-    oss << '.' << std::setfill('0') << std::setw(3) << ms.count() << "Z";
-    return oss.str();
-}
-
-// Global convenience functions
-void debug(const std::string& message, const nlohmann::json& data) {
-    auto logger = LoggerRegistry::get_logger("global");
-    logger->debug(message, data);
-}
-
-void info(const std::string& message, const nlohmann::json& data) {
-    auto logger = LoggerRegistry::get_logger("global");
-    logger->info(message, data);
-}
-
-void warn(const std::string& message, const nlohmann::json& data) {
-    auto logger = LoggerRegistry::get_logger("global");
-    logger->warn(message, data);
-}
-
-void error(const std::string& message, const nlohmann::json& data) {
-    auto logger = LoggerRegistry::get_logger("global");
-    logger->error(message, data);
-}
-
-void fatal(const std::string& message, const nlohmann::json& data) {
-    auto logger = LoggerRegistry::get_logger("global");
-    logger->fatal(message, data);
-}
-
-void trace(const std::string& message, const nlohmann::json& data) {
-    auto logger = LoggerRegistry::get_logger("global");
-    logger->trace(message, data);
+    std::stringstream ss;
+    ss << std::put_time(std::gmtime(&time_t), "%Y-%m-%dT%H:%M:%S");
+    ss << '.' << std::setfill('0') << std::setw(3) << ms.count() << 'Z';
+    return ss.str();
 }
 
 } // namespace logging
 } // namespace aimux
-
-// Global convenience functions in aimux namespace
-namespace aimux {
-
-void debug(const std::string& message, const nlohmann::json& data) {
-    logging::debug(message, data);
-}
-
-void info(const std::string& message, const nlohmann::json& data) {
-    logging::info(message, data);
-}
-
-void warn(const std::string& message, const nlohmann::json& data) {
-    logging::warn(message, data);
-}
-
-void error(const std::string& message, const nlohmann::json& data) {
-    logging::error(message, data);
-}
-
-void fatal(const std::string& message, const nlohmann::json& data) {
-    logging::fatal(message, data);
-}
-
-void trace(const std::string& message, const nlohmann::json& data) {
-    logging::trace(message, data);
-}
-
-} // namespace aimux
-
