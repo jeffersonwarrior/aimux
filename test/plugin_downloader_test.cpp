@@ -16,18 +16,21 @@ using ::testing::SaveArg;
 // Mock HTTP client for testing
 class MockHttpClient : public HttpClient {
 public:
-    MOCK_METHOD(std::future<Response>, get, (const std::string& url, const std::unordered_map<std::string,std::string>& headers), (override));
-    MOCK_METHOD(std::future<bool>, download_file, (const std::string& url, const std::string& destination, std::function<void(const DownloadProgress&)> progress_callback), (override));
-    MOCK_METHOD(std::future<bool>, resume_download, (const std::string& url, const std::string& destination, size_t resume_from, std::function<void(const DownloadProgress&)> progress_callback), (override));
+    using HeaderMap = std::unordered_map<std::string,std::string>;
+    using ProgressCallback = std::function<void(const DownloadProgress&)>;
+
+    MOCK_METHOD(std::future<Response>, get, (const std::string& url, const HeaderMap& headers), (override));
+    MOCK_METHOD(std::future<bool>, download_file, (const std::string& url, const std::string& destination, ProgressCallback progress_callback), (override));
+    MOCK_METHOD(std::future<bool>, resume_download, (const std::string& url, const std::string& destination, size_t resume_from, ProgressCallback progress_callback), (override));
     bool supports_resume() const override { return true; }
     void set_timeout(std::chrono::seconds timeout) override {}
     void set_max_retries(int retries) override {}
 };
 
 // Mock GitHub registry for testing
-class MockGitHubRegistry {
+class MockGitHubRegistry : public GitHubRegistry {
 public:
-    MockGitHubRegistry() {}
+    MockGitHubRegistry() : GitHubRegistry() {}
 
     MOCK_METHOD(std::future<std::optional<GitHubRepoInfo>>, get_plugin_info, (const std::string& plugin_id));
     MOCK_METHOD(std::future<std::vector<GitHubRelease>>, get_plugin_releases, (const std::string& plugin_id));

@@ -297,6 +297,8 @@ void WebServer::setup_routes() {
     });
 
     // Enhanced WebSocket for real-time dashboard data with MetricsStreamer integration
+    // TODO: Enable websocket support when Crow version supports CROW_WEBSOCKET_ROUTE
+    #ifdef CROW_ENABLE_WEBSOCKET
     CROW_WEBSOCKET_ROUTE(app, "/ws")
         .onopen([this](crow::websocket::connection& conn) {
             std::cout << "WebSocket connection opened - integrating with MetricsStreamer" << std::endl;
@@ -362,6 +364,7 @@ void WebServer::setup_routes() {
                 }
             }
         });
+    #endif // CROW_ENABLE_WEBSOCKET
 
     // CORS is handled in convert_to_crow_response
 }

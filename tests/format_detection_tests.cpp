@@ -305,7 +305,6 @@ void test_confidence_calculation(TestResults& results) {
         json{
             {"model", "claude-3-5-sonnet"},
             {"messages", {{"role", "user"}, {"content", "test"}}}
-        }
         },
         {
             {"anthropic-version", "2023-06-01"},
@@ -453,7 +452,7 @@ void test_performance(FormatDetector& detector, TestResults& results) {
     const int num_iterations = 1000;
     json test_request = {
         {"model", "claude-3-5-sonnet"},
-        {"messages", json::array({{"role", "user"}, {"content", "test"}}})},
+        {"messages", json::array({{{"role", "user"}, {"content", "test"}}})},
         {"max_tokens", 1024}
     };
     std::map<std::string, std::string> test_headers = {

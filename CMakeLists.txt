@@ -36,24 +36,30 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
 # Find required packages
 find_package(PkgConfig REQUIRED)
 
-# vcpkg toolchain
-if(DEFINED CMAKE_TOOLCHAIN_FILE AND CMAKE_TOOLCHAIN_FILE MATCHES "vcpkg")
-    message(STATUS "Using vcpkg toolchain")
-else()
-    # Set vcpkg toolchain if not defined
-    set(CMAKE_TOOLCHAIN_FILE "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg/scripts/buildsystems/vcpkg.cmake"
-        CACHE STRING "Vcpkg toolchain file")
-    message(STATUS "Setting vcpkg toolchain to: ${CMAKE_TOOLCHAIN_FILE}")
-endif()
+# Try to find nlohmann_json - prefer system package over vcpkg
+find_package(nlohmann_json CONFIG QUIET)
+if(NOT nlohmann_json_FOUND)
+    # Try vcpkg if system package not found
+    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg/scripts/buildsystems/vcpkg.cmake")
+        set(CMAKE_TOOLCHAIN_FILE "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg/scripts/buildsystems/vcpkg.cmake"
+            CACHE STRING "Vcpkg toolchain file")
+        set(nlohmann_json_DIR "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg/packages/nlohmann-json_x64-linux/share/nlohmann_json")
+        find_package(nlohmann_json CONFIG QUIET)
+    endif()
 
-# Use vcpkg packages with system fallback
-set(nlohmann_json_DIR "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg/packages/nlohmann-json_x64-linux/share/nlohmann_json")
-find_package(nlohmann_json CONFIG REQUIRED)
+    # Fallback to header-only if still not found
+    if(NOT nlohmann_json_FOUND)
+        message(STATUS "Using system nlohmann-json header-only")
+        add_library(nlohmann_json::nlohmann_json INTERFACE IMPORTED)
+        set_target_properties(nlohmann_json::nlohmann_json PROPERTIES
+            INTERFACE_INCLUDE_DIRECTORIES "/usr/include")
+    endif()
+endif()
 # Force manual CURL configuration
 set(CURL_FOUND TRUE)
-set(CURL_INCLUDE_DIRS "/usr/include/curl")
-set(CURL_LIBRARIES "/usr/lib/libcurl.so")
-set(CURL_VERSION_STRING "8.17.0")
+set(CURL_INCLUDE_DIRS "/usr/include/x86_64-linux-gnu")
+set(CURL_LIBRARIES "/usr/lib/x86_64-linux-gnu/libcurl.so")
+set(CURL_VERSION_STRING "8.5.0")
 add_library(CURL::libcurl SHARED IMPORTED)
 set_target_properties(CURL::libcurl PROPERTIES
     INTERFACE_INCLUDE_DIRECTORIES "${CURL_INCLUDE_DIRS}"
@@ -61,8 +67,8 @@ set_target_properties(CURL::libcurl PROPERTIES
 # Force manual OpenSSL configuration
 set(OPENSSL_FOUND TRUE)
 set(OPENSSL_INCLUDE_DIR "/usr/include/openssl")
-set(OPENSSL_SSL_LIBRARY "/usr/lib/libssl.so")
-set(OPENSSL_CRYPTO_LIBRARY "/usr/lib/libcrypto.so")
+set(OPENSSL_SSL_LIBRARY "/usr/lib/x86_64-linux-gnu/libssl.so")
+set(OPENSSL_CRYPTO_LIBRARY "/usr/lib/x86_64-linux-gnu/libcrypto.so")
 set(OPENSSL_LIBRARIES "${OPENSSL_SSL_LIBRARY} ${OPENSSL_CRYPTO_LIBRARY}")
 set(OPENSSL_INCLUDE_DIRS "${OPENSSL_INCLUDE_DIR}")
 add_library(OpenSSL::SSL SHARED IMPORTED)
@@ -75,25 +81,42 @@ set_target_properties(OpenSSL::Crypto PROPERTIES
     IMPORTED_LOCATION "${OPENSSL_CRYPTO_LIBRARY}")
 find_package(Threads REQUIRED)
 
-# Try vcpkg packages first, fallback to manual configuration
+# Try vcpkg packages first, fallback to system or manual configuration
 find_package(asio CONFIG QUIET)
 if(NOT asio_FOUND)
-    message(STATUS "Using header-only asio")
-    set(asio_LIBRARIES "")
-    set(asio_INCLUDE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg/packages/asio_x64-linux/include")
+    # Check if system asio exists
+    if(EXISTS "/usr/include/asio.hpp")
+        message(STATUS "Using system asio from /usr/include")
+        set(asio_INCLUDE_DIRS "/usr/include")
+    elseif(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg/packages/asio_x64-linux/include")
+        message(STATUS "Using vcpkg asio")
+        set(asio_INCLUDE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg/packages/asio_x64-linux/include")
+    else()
+        message(FATAL_ERROR "asio not found in system or vcpkg")
+    endif()
     add_library(asio::asio INTERFACE IMPORTED)
     set_target_properties(asio::asio PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${asio_INCLUDE_DIRS}")
 endif()
 
 find_package(Crow CONFIG QUIET)
 if(NOT Crow_FOUND)
-    message(STATUS "Using header-only Crow with manual configuration")
-    set(Crow_LIBRARIES "")
-    set(Crow_INCLUDE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg/packages/crow_x64-linux/include")
-    set(asio_INCLUDE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg/packages/asio_x64-linux/include")
-    add_library(Crow::Crow INTERFACE IMPORTED)
-    set_target_properties(Crow::Crow PROPERTIES
-        INTERFACE_INCLUDE_DIRECTORIES "${Crow_INCLUDE_DIRS};${asio_INCLUDE_DIRS}")
+    # Check vcpkg first, then download if needed
+    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg/packages/crow_x64-linux/include")
+        message(STATUS "Using vcpkg Crow")
+        set(Crow_INCLUDE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg/packages/crow_x64-linux/include")
+    elseif(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/include/crow.h")
+        message(STATUS "Using local Crow from include/")
+        set(Crow_INCLUDE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/include")
+    else()
+        message(STATUS "Crow not found - will download if needed or skip web features")
+        set(Crow_INCLUDE_DIRS "")
+    endif()
+
+    if(Crow_INCLUDE_DIRS)
+        add_library(Crow::Crow INTERFACE IMPORTED)
+        set_target_properties(Crow::Crow PROPERTIES
+            INTERFACE_INCLUDE_DIRECTORIES "${Crow_INCLUDE_DIRS};${asio_INCLUDE_DIRS}")
+    endif()
 endif()
 
 # Create CURL target if config not found

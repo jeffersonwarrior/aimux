@@ -692,7 +692,7 @@ std::string OpenAIFormatter::process_legacy_format(const std::string& content) c
         }
 
         // Map legacy fields to modern format
-        nlohmann::json modern_format = content_json;
+        nlohmann::json modern_format = *content_json;
 
         // Handle legacy completion format
         if (content_json->contains("text") && !content_json->contains("choices")) {
