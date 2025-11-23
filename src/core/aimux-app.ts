@@ -427,10 +427,12 @@ export class AimuxApp {
     console.log(banner);
 
     // Get provider-specific configuration
-    const providerConfig = config.multiProvider?.providers?.[providerId as keyof typeof config.multiProvider.providers];
+    const providerConfig =
+      config.multiProvider?.providers?.[providerId as keyof typeof config.multiProvider.providers];
 
     const providerApiKey = providerConfig?.apiKey || config.apiKey;
-    let baseUrl = providerConfig?.anthropicBaseUrl || providerConfig?.baseUrl || config.anthropicBaseUrl;
+    let baseUrl =
+      providerConfig?.anthropicBaseUrl || providerConfig?.baseUrl || config.anthropicBaseUrl;
 
     // Special handling for Z.AI: Use simple inline model transformation
     if (providerId === 'z-ai') {
@@ -446,7 +448,7 @@ export class AimuxApp {
       setTimeout(() => {
         const server = http.createServer((req: any, res: any) => {
           let body = '';
-          req.on('data', (chunk: any) => body += chunk);
+          req.on('data', (chunk: any) => (body += chunk));
           req.on('end', () => {
             try {
               const data = JSON.parse(body);
@@ -465,20 +467,23 @@ export class AimuxApp {
               const targetUrl = `https://api.z.ai${targetPath}`;
               const parsedUrl = new url.URL(targetUrl);
 
-              const proxyReq = require('https').request({
-                hostname: 'api.z.ai',
-                port: 443,
-                path: parsedUrl.pathname + parsedUrl.search,
-                method: req.method,
-                headers: {
-                  ...req.headers,
-                  host: 'api.z.ai',
-                  'content-length': Buffer.byteLength(JSON.stringify(data))
+              const proxyReq = require('https').request(
+                {
+                  hostname: 'api.z.ai',
+                  port: 443,
+                  path: parsedUrl.pathname + parsedUrl.search,
+                  method: req.method,
+                  headers: {
+                    ...req.headers,
+                    host: 'api.z.ai',
+                    'content-length': Buffer.byteLength(JSON.stringify(data)),
+                  },
+                },
+                (proxyRes: any) => {
+                  res.writeHead(proxyRes.statusCode || 200, proxyRes.headers);
+                  proxyRes.pipe(res);
                 }
-              }, (proxyRes: any) => {
-                res.writeHead(proxyRes.statusCode || 200, proxyRes.headers);
-                proxyRes.pipe(res);
-              });
+              );
 
               proxyReq.on('error', (err: any) => {
                 res.writeHead(502);
@@ -563,16 +568,16 @@ export class AimuxApp {
     const models: Record<string, { default: string; thinking: string }> = {
       'minimax-m2': {
         default: 'minimax-claude-instant-1',
-        thinking: 'minimax-claude-3-sonnet-20240229'
+        thinking: 'minimax-claude-3-sonnet-20240229',
       },
       'z-ai': {
         default: 'GLM-4.6',
-        thinking: 'GLM-4.6'
+        thinking: 'GLM-4.6',
       },
       'synthetic-new': {
         default: 'claude-3-haiku-20240307',
-        thinking: 'claude-3-5-sonnet-20241022'
-      }
+        thinking: 'claude-3-5-sonnet-20241022',
+      },
     };
 
     return models[providerId] || models['synthetic-new']!;

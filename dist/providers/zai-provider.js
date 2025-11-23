@@ -185,8 +185,8 @@ class ZAIProvider extends base_provider_1.BaseProvider {
             const requestUrl = `${this.config?.baseUrl || this.DEFAULT_BASE_URL}/messages`;
             console.log(`[Z.AI DEBUG] Request URL: ${requestUrl}`);
             console.log(`[Z.AI DEBUG] Request headers:`, {
-                'Authorization': `Bearer ${this.config?.apiKey ? this.config.apiKey.substring(0, 10) + '...' : 'MISSING'}`,
-                'Content-Type': 'application/json'
+                Authorization: `Bearer ${this.config?.apiKey ? this.config.apiKey.substring(0, 10) + '...' : 'MISSING'}`,
+                'Content-Type': 'application/json',
             });
             console.log(`[Z.AI DEBUG] Request body model: ${zaiRequest.model}`);
             console.log(`[Z.AI DEBUG] Request body:`, JSON.stringify(zaiRequest, null, 2));
@@ -419,14 +419,16 @@ class ZAIProvider extends base_provider_1.BaseProvider {
                 object: data.object || 'chat.completion',
                 created: data.created || Math.floor(Date.now() / 1000),
                 model: data.model || 'glm-4.6',
-                choices: [{
+                choices: [
+                    {
                         index: 0,
                         message: {
                             role: data.role || 'assistant',
                             content: messageContent,
                         },
                         finish_reason: data.stop_reason || 'stop',
-                    }],
+                    },
+                ],
                 usage: data.usage
                     ? {
                         prompt_tokens: data.usage.input_tokens || data.usage.prompt_tokens,

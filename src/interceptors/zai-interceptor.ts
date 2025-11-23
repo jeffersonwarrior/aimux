@@ -85,8 +85,8 @@ class ZAIInterceptor {
       headers: {
         ...req.headers,
         host: this.targetHost,
-        'content-length': Buffer.byteLength(transformedBody)
-      }
+        'content-length': Buffer.byteLength(transformedBody),
+      },
     };
 
     this.log(`Proxying ${req.method} ${targetUrl}`);
@@ -152,7 +152,9 @@ class ZAIInterceptor {
     server.listen(this.port, () => {
       console.log(`[Z.AI INTERCEPTOR] 🚀 Proxy server running on http://localhost:${this.port}`);
       console.log(`[Z.AI INTERCEPTOR] 📡 Ready to intercept Z.AI requests`);
-      console.log(`[Z.AI INTERCEPTOR] 🎯 Configure aimux to use: http://localhost:${this.port}/anthropic`);
+      console.log(
+        `[Z.AI INTERCEPTOR] 🎯 Configure aimux to use: http://localhost:${this.port}/anthropic`
+      );
     });
 
     server.on('error', (error: any) => {

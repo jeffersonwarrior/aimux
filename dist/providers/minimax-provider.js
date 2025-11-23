@@ -329,7 +329,9 @@ class MinimaxM2Provider extends base_provider_1.BaseProvider {
                     });
                     // If all content was images, provide a fallback text
                     if (transformed.content.length === 0) {
-                        transformed.content = [{ type: 'text', text: 'I cannot process images. Please provide text-only input.' }];
+                        transformed.content = [
+                            { type: 'text', text: 'I cannot process images. Please provide text-only input.' },
+                        ];
                     }
                 }
                 if (msg.name) {

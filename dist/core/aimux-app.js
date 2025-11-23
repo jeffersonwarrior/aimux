@@ -334,7 +334,7 @@ class AimuxApp {
             setTimeout(() => {
                 const server = http.createServer((req, res) => {
                     let body = '';
-                    req.on('data', (chunk) => body += chunk);
+                    req.on('data', (chunk) => (body += chunk));
                     req.on('end', () => {
                         try {
                             const data = JSON.parse(body);
@@ -358,8 +358,8 @@ class AimuxApp {
                                 headers: {
                                     ...req.headers,
                                     host: 'api.z.ai',
-                                    'content-length': Buffer.byteLength(JSON.stringify(data))
-                                }
+                                    'content-length': Buffer.byteLength(JSON.stringify(data)),
+                                },
                             }, (proxyRes) => {
                                 res.writeHead(proxyRes.statusCode || 200, proxyRes.headers);
                                 proxyRes.pipe(res);
@@ -434,16 +434,16 @@ class AimuxApp {
         const models = {
             'minimax-m2': {
                 default: 'minimax-claude-instant-1',
-                thinking: 'minimax-claude-3-sonnet-20240229'
+                thinking: 'minimax-claude-3-sonnet-20240229',
             },
             'z-ai': {
                 default: 'GLM-4.6',
-                thinking: 'GLM-4.6'
+                thinking: 'GLM-4.6',
             },
             'synthetic-new': {
                 default: 'claude-3-haiku-20240307',
-                thinking: 'claude-3-5-sonnet-20241022'
-            }
+                thinking: 'claude-3-5-sonnet-20241022',
+            },
         };
         return models[providerId] || models['synthetic-new'];
     }

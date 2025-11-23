@@ -137,7 +137,8 @@ export class ZAIProvider extends BaseProvider {
     } catch (error: any) {
       return {
         success: false,
-        error: error.response?.data?.error?.message || error.message || 'Authentication request failed',
+        error:
+          error.response?.data?.error?.message || error.message || 'Authentication request failed',
       };
     }
   }
@@ -223,22 +224,18 @@ export class ZAIProvider extends BaseProvider {
       const requestUrl = `${this.config?.baseUrl || this.DEFAULT_BASE_URL}/messages`;
       console.log(`[Z.AI DEBUG] Request URL: ${requestUrl}`);
       console.log(`[Z.AI DEBUG] Request headers:`, {
-        'Authorization': `Bearer ${this.config?.apiKey ? this.config.apiKey.substring(0, 10) + '...' : 'MISSING'}`,
-        'Content-Type': 'application/json'
+        Authorization: `Bearer ${this.config?.apiKey ? this.config.apiKey.substring(0, 10) + '...' : 'MISSING'}`,
+        'Content-Type': 'application/json',
       });
       console.log(`[Z.AI DEBUG] Request body model: ${zaiRequest.model}`);
       console.log(`[Z.AI DEBUG] Request body:`, JSON.stringify(zaiRequest, null, 2));
 
-      const response: AxiosResponse = await this.httpClient.post(
-        requestUrl,
-        zaiRequest,
-        {
-          timeout: this.config?.timeout || 120000, // 2 minutes default
-          signal: request.metadata?.timeout
-            ? AbortSignal.timeout(request.metadata.timeout)
-            : undefined,
-        }
-      );
+      const response: AxiosResponse = await this.httpClient.post(requestUrl, zaiRequest, {
+        timeout: this.config?.timeout || 120000, // 2 minutes default
+        signal: request.metadata?.timeout
+          ? AbortSignal.timeout(request.metadata.timeout)
+          : undefined,
+      });
 
       console.log(`[Z.AI DEBUG] Response status: ${response.status}`);
       console.log(`[Z.AI DEBUG] Response headers:`, response.headers);
@@ -356,7 +353,7 @@ export class ZAIProvider extends BaseProvider {
         // Z.AI GLM models support vision and tools but not thinking
         thinking: false,
         vision: true, // GLM models support vision
-        tools: true,  // GLM models support tools
+        tools: true, // GLM models support tools
       },
       context_length: 100000, // GLM context length
       max_output_length: 4000,
@@ -488,14 +485,16 @@ export class ZAIProvider extends BaseProvider {
         object: data.object || 'chat.completion',
         created: data.created || Math.floor(Date.now() / 1000),
         model: data.model || 'glm-4.6',
-        choices: [{
-          index: 0,
-          message: {
-            role: data.role || 'assistant',
-            content: messageContent,
+        choices: [
+          {
+            index: 0,
+            message: {
+              role: data.role || 'assistant',
+              content: messageContent,
+            },
+            finish_reason: data.stop_reason || 'stop',
           },
-          finish_reason: data.stop_reason || 'stop',
-        }],
+        ],
         usage: data.usage
           ? {
               prompt_tokens: data.usage.input_tokens || data.usage.prompt_tokens,

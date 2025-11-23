@@ -2,10 +2,7 @@ import { BaseProvider } from '../providers/base-provider';
 import { ProviderRegistry } from '../providers/provider-registry';
 import { AIRequest, AIResponse, ProviderError } from '../providers/types';
 import { getLogger } from '../utils/logger';
-import {
-  analyzeRequestRequirements,
-  calculateProviderCompatibility,
-} from './routing-utils';
+import { analyzeRequestRequirements, calculateProviderCompatibility } from './routing-utils';
 import { RoutingEngine } from './routing-engine';
 
 /**
