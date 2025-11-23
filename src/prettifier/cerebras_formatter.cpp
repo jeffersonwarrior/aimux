@@ -133,6 +133,13 @@ ProcessingResult CerebrasFormatter::postprocess_response(
     auto start_time = std::chrono::high_resolution_clock::now();
 
     try {
+        // Input size validation to prevent crashes on very large inputs
+        const size_t MAX_INPUT_SIZE = 10 * 1024 * 1024; // 10MB limit for local development
+        if (response.data.size() > MAX_INPUT_SIZE) {
+            LOG_ERROR("Input size %zu exceeds maximum allowed size %zu", response.data.size(), MAX_INPUT_SIZE);
+            return create_error_result("Input size too large (max 10MB)", "input_too_large");
+        }
+
         // Check if we should trigger fast failover early
         auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
             std::chrono::high_resolution_clock::now() - start_time).count();
@@ -475,6 +482,53 @@ std::vector<ToolCall> CerebrasFormatter::extract_cerebras_tool_calls(const std::
     try {
         auto start_time = std::chrono::high_resolution_clock::now();
 
+        // First, try to parse the entire content as JSON (OpenAI-style format)
+        auto json_opt = validate_json(content);
+        if (json_opt) {
+            // Check for OpenAI-style: choices[0].message.tool_calls
+            if (json_opt->contains("choices") && json_opt->at("choices").is_array() && !json_opt->at("choices").empty()) {
+                const auto& first_choice = json_opt->at("choices")[0];
+                if (first_choice.contains("message")) {
+                    const auto& message = first_choice["message"];
+                    if (message.contains("tool_calls") && message["tool_calls"].is_array()) {
+                        for (const auto& tc : message["tool_calls"]) {
+                            ToolCall call;
+                            call.status = "pending";
+                            call.timestamp = std::chrono::system_clock::now();
+
+                            if (tc.contains("function")) {
+                                const auto& func = tc["function"];
+                                if (func.contains("name")) {
+                                    call.name = func["name"].get<std::string>();
+                                }
+                                if (func.contains("arguments")) {
+                                    if (func["arguments"].is_string()) {
+                                        // Parse arguments if they're a JSON string
+                                        auto args_opt = validate_json(func["arguments"].get<std::string>());
+                                        if (args_opt) {
+                                            call.parameters = *args_opt;
+                                        } else {
+                                            call.parameters = func["arguments"];
+                                        }
+                                    } else {
+                                        call.parameters = func["arguments"];
+                                    }
+                                }
+                            }
+                            if (tc.contains("id")) {
+                                call.id = tc["id"].get<std::string>();
+                            }
+
+                            tool_calls.push_back(call);
+                        }
+
+                        LOG_DEBUG("Tool call extraction completed, found %zu calls from OpenAI-style format", tool_calls.size());
+                        return tool_calls;
+                    }
+                }
+            }
+        }
+
         bool cache_used = false;
 
         // Use pre-compiled patterns for speed
@@ -485,22 +539,22 @@ std::vector<ToolCall> CerebrasFormatter::extract_cerebras_tool_calls(const std::
 
             while (std::regex_search(search_content, match, patterns_->fast_tool_pattern)) {
                 std::string json_str = match[0].str();
-                auto json_opt = validate_json(json_str);
+                auto json_opt2 = validate_json(json_str);
 
-                if (json_opt && json_opt->contains("function")) {
+                if (json_opt2 && json_opt2->contains("function")) {
                     ToolCall call;
                     call.status = "pending";
                     call.timestamp = std::chrono::system_clock::now();
 
-                    const auto& func = (*json_opt)["function"];
+                    const auto& func = (*json_opt2)["function"];
                     if (func.contains("name")) {
                         call.name = func["name"].get<std::string>();
                     }
                     if (func.contains("arguments")) {
                         call.parameters = func["arguments"];
                     }
-                    if (json_opt->contains("id")) {
-                        call.id = (*json_opt)["id"].get<std::string>();
+                    if (json_opt2->contains("id")) {
+                        call.id = (*json_opt2)["id"].get<std::string>();
                     }
 
                     tool_calls.push_back(call);
@@ -514,14 +568,14 @@ std::vector<ToolCall> CerebrasFormatter::extract_cerebras_tool_calls(const std::
             if (tool_calls.empty()) {
                 if (std::regex_search(content, match, patterns_->cerebras_json_pattern)) {
                     std::string json_str = match[0].str();
-                    auto json_opt = validate_json(json_str);
+                    auto json_opt3 = validate_json(json_str);
 
-                    if (json_opt && json_opt->contains("function_call")) {
+                    if (json_opt3 && json_opt3->contains("function_call")) {
                         ToolCall call;
                         call.status = "pending";
                         call.timestamp = std::chrono::system_clock::now();
 
-                        const auto& fc = (*json_opt)["function_call"];
+                        const auto& fc = (*json_opt3)["function_call"];
                         if (fc.contains("name")) {
                             call.name = fc["name"].get<std::string>();
                         }

@@ -160,6 +160,13 @@ ProcessingResult OpenAIFormatter::postprocess_response(
     auto start_time = std::chrono::high_resolution_clock::now();
 
     try {
+        // Input size validation to prevent crashes on very large inputs
+        const size_t MAX_INPUT_SIZE = 10 * 1024 * 1024; // 10MB limit for local development
+        if (response.data.size() > MAX_INPUT_SIZE) {
+            LOG_ERROR("Input size %zu exceeds maximum allowed size %zu", response.data.size(), MAX_INPUT_SIZE);
+            return create_error_result("Input size too large (max 10MB)", "input_too_large");
+        }
+
         ProcessingResult result;
         result.success = true;
         result.output_format = "toon";
@@ -875,10 +882,19 @@ std::string OpenAIFormatter::detect_format_type(const std::string& content) cons
 
 std::string OpenAIFormatter::clean_openai_content(const std::string& content) const {
     try {
+        // Skip regex operations on very large inputs to prevent stack overflow
+        const size_t MAX_REGEX_SIZE = 100 * 1024; // 100KB limit for regex operations
+
         // Try to parse as JSON first
         auto content_json = validate_json(content);
         if (content_json) {
             return content_json->dump(); // Return cleaned JSON
+        }
+
+        // For large non-JSON content, return as-is without regex processing
+        if (content.size() > MAX_REGEX_SIZE) {
+            LOG_DEBUG("Content too large for regex cleaning (%zu bytes), returning as-is", content.size());
+            return content;
         }
 
         // Clean plain text content
