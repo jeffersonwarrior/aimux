@@ -8,6 +8,7 @@ This directory contains comprehensive AI-accessible documentation for the Aimux 
 - **`architecture.toon`** - System design patterns, threading model, security boundaries
 - **`components.toon`** - Detailed component breakdown with methods and interfaces
 - **`providers.toon`** - AI provider system, load balancing, and failover mechanisms
+- **`tui_system.toon`** - TUI and provider/model enumeration architecture review
 
 ### System Features
 - **`api.toon`** - REST API endpoints, WebSocket interface, Admin APIs
