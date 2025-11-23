@@ -15,11 +15,11 @@ namespace prettifier {
 // ClaudePatterns implementation
 AnthropicFormatter::ClaudePatterns::ClaudePatterns()
     : function_calls_start(R"(<function_calls[^>]*>)", std::regex::optimize | std::regex::icase)
-    , function_calls_end(R"(</function_cases>)", std::regex::optimize | std::regex::icase)
-    , function_call_pattern(R"(<invoke[^>]*name\s*=\s*\"([^\"]+)\"[^>]*>(.*?)</invoke>)", std::regex::optimize | std::regex::icase)
+    , function_calls_end(R"(</function_calls>)", std::regex::optimize | std::regex::icase)
+    , function_call_pattern(R"(<invoke[^>]*name\s*=\s*\"([^\"]+)\"[^>]*>([\s\S]*?)</invoke>)", std::regex::optimize | std::regex::icase)
     , thinking_start(R"(<thinking>)", std::regex::optimize | std::regex::icase)
     , thinking_end(R"(</thinking>)", std::regex::optimize | std::regex::icase)
-    , reflection_pattern(R"(<reflection[^>]*>(.*?)</reflection>)", std::regex::optimize | std::regex::icase)
+    , reflection_pattern(R"(<reflection[^>]*>([\s\S]*?)</reflection>)", std::regex::optimize | std::regex::icase)
     , code_block_pattern(R"(```[\s\S]*?```)", std::regex::optimize)
     , xml_artifact_pattern(R"(&[a-z]+;|&\#[0-9]+;)", std::regex::optimize) {
 }
@@ -168,6 +168,13 @@ ProcessingResult AnthropicFormatter::postprocess_response(
     auto start_time = std::chrono::high_resolution_clock::now();
 
     try {
+        // Input size validation to prevent crashes on very large inputs
+        const size_t MAX_INPUT_SIZE = 10 * 1024 * 1024; // 10MB limit for local development
+        if (response.data.size() > MAX_INPUT_SIZE) {
+            LOG_ERROR("Input size %zu exceeds maximum allowed size %zu", response.data.size(), MAX_INPUT_SIZE);
+            return create_error_result("Input size too large (max 10MB)", "input_too_large");
+        }
+
         ProcessingResult result;
         result.success = true;
         result.output_format = "toon";

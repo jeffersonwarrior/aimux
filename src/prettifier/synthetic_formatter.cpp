@@ -169,6 +169,13 @@ ProcessingResult SyntheticFormatter::postprocess_response(
     auto start_time = std::chrono::high_resolution_clock::now();
 
     try {
+        // Input size validation to prevent crashes on very large inputs
+        const size_t MAX_INPUT_SIZE = 10 * 1024 * 1024; // 10MB limit for local development
+        if (response.data.size() > MAX_INPUT_SIZE) {
+            LOG_ERROR("Input size %zu exceeds maximum allowed size %zu", response.data.size(), MAX_INPUT_SIZE);
+            return create_error_result("Input size too large (max 10MB)", "input_too_large");
+        }
+
         ProcessingResult result;
         result.success = true;
         result.output_format = "toon";

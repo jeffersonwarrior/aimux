@@ -1,16 +1,16 @@
-# Aimux v2.0 Code Documentation
+# Aimux v2.0/v2.1 Code Documentation
 
-This directory contains comprehensive AI-accessible documentation for the Aimux v2.0 C++ AI service router, formatted in Toon (Token-Oriented Object Notation) for optimal LLM consumption.
+This directory contains comprehensive AI-accessible documentation for the Aimux v2.0 C++ AI service router and v2.1 Prettifier Plugin System, formatted in Toon (Token-Oriented Object Notation) for optimal LLM consumption.
 
 ## 📁 Documentation Files
 
-### Core Architecture
+### Core Architecture (v2.0)
 - **`architecture.toon`** - System design patterns, threading model, security boundaries
 - **`components.toon`** - Detailed component breakdown with methods and interfaces
 - **`providers.toon`** - AI provider system, load balancing, and failover mechanisms
 - **`tui_system.toon`** - TUI and provider/model enumeration architecture review
 
-### System Features
+### System Features (v2.0)
 - **`api.toon`** - REST API endpoints, WebSocket interface, Admin APIs
 - **`security.toon`** - AES-256-GCM encryption, TLS configuration, audit logging
 - **`performance.toon`** - Caching, connection pooling, load balancing strategies
@@ -18,6 +18,9 @@ This directory contains comprehensive AI-accessible documentation for the Aimux 
 
 ### Development & Deployment
 - **`build.toon`** - CMake configuration, dependencies, testing framework
+
+### Version 2.1 - Prettifier Plugin System
+- **`version_2.1_status.toon`** - Complete v2.1 status report, build verification, Phase 1 & 2 progress (72% complete)
 
 ## 🎯 Toon Format Benefits
 

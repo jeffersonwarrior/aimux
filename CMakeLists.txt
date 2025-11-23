@@ -150,6 +150,8 @@ set(PRETTIFIER_SOURCES
     src/prettifier/anthropic_formatter.cpp
     src/prettifier/synthetic_formatter.cpp
     src/prettifier/streaming_processor.cpp
+    src/prettifier/markdown_normalizer.cpp
+    src/prettifier/tool_call_extractor.cpp
 )
 
 # Distribution sources

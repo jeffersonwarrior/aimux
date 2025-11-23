@@ -161,6 +161,9 @@ void GatewayManager::initialize() {
     // Start health monitoring
     start_health_monitoring();
 
+    // Initialize prettifier formatters (v2.1)
+    initialize_prettifier_formatters();
+
     initialized_.store(true);
     aimux::info("GatewayManager: Initialization complete");
 }
@@ -398,7 +401,15 @@ core::Response GatewayManager::route_request_to_provider(const core::Request& re
     }
 
     try {
-        return adapter->send_request(request);
+        // Send request to provider
+        core::Response response = adapter->send_request(request);
+
+        // Apply prettifier postprocessing (v2.1)
+        if (prettifier_enabled_.load() && response.success) {
+            response = apply_prettifier(response, provider_name, request);
+        }
+
+        return response;
     } catch (const std::exception& e) {
         aimux::error("Provider " + provider_name + " request failed: " + e.what());
         return create_error_response("PROVIDER_REQUEST_FAILED", e.what(), 502);
@@ -951,6 +962,116 @@ bool GatewayManager::validate_base_url(const std::string& url) const {
 bool GatewayManager::validate_capability_flags(int flags) const {
     // Check if flags are within reasonable range
     return flags >= 0 && flags <= (1 << 6) - 1; // Up to 6 capability bits
+}
+
+// ============================================================================
+// Prettifier Integration (v2.1)
+// ============================================================================
+
+void GatewayManager::initialize_prettifier_formatters() {
+    if (!prettifier_enabled_.load()) {
+        aimux::info("GatewayManager: Prettifier disabled in configuration");
+        return;
+    }
+
+    try {
+        // Create provider-specific formatters
+        prettifier_formatters_["cerebras"] = std::make_shared<prettifier::CerebrasFormatter>();
+        prettifier_formatters_["openai"] = std::make_shared<prettifier::OpenAIFormatter>();
+        prettifier_formatters_["zai"] = std::make_shared<prettifier::OpenAIFormatter>(); // Z.AI uses OpenAI format
+        prettifier_formatters_["anthropic"] = std::make_shared<prettifier::AnthropicFormatter>();
+        prettifier_formatters_["synthetic"] = std::make_shared<prettifier::SyntheticFormatter>();
+
+        aimux::info("GatewayManager: Initialized " + std::to_string(prettifier_formatters_.size()) + " prettifier formatters");
+    } catch (const std::exception& e) {
+        aimux::error("GatewayManager: Failed to initialize prettifier formatters: " + std::string(e.what()));
+        prettifier_enabled_.store(false);
+    }
+}
+
+prettifier::PrettifierPlugin* GatewayManager::get_prettifier_for_provider(const std::string& provider_name) {
+    // Try exact match first
+    auto it = prettifier_formatters_.find(provider_name);
+    if (it != prettifier_formatters_.end()) {
+        return it->second.get();
+    }
+
+    // Try case-insensitive match
+    std::string lower_name = provider_name;
+    std::transform(lower_name.begin(), lower_name.end(), lower_name.begin(), ::tolower);
+
+    it = prettifier_formatters_.find(lower_name);
+    if (it != prettifier_formatters_.end()) {
+        return it->second.get();
+    }
+
+    // Check if provider name contains known provider keywords
+    if (lower_name.find("cerebras") != std::string::npos) {
+        return prettifier_formatters_["cerebras"].get();
+    } else if (lower_name.find("openai") != std::string::npos || lower_name.find("gpt") != std::string::npos) {
+        return prettifier_formatters_["openai"].get();
+    } else if (lower_name.find("anthropic") != std::string::npos || lower_name.find("claude") != std::string::npos) {
+        return prettifier_formatters_["anthropic"].get();
+    } else if (lower_name.find("synthetic") != std::string::npos) {
+        return prettifier_formatters_["synthetic"].get();
+    }
+
+    // Default to synthetic formatter for unknown providers
+    aimux::debug("GatewayManager: No specific formatter for provider '" + provider_name + "', using synthetic formatter");
+    return prettifier_formatters_["synthetic"].get();
+}
+
+core::Response GatewayManager::apply_prettifier(const core::Response& response,
+                                               const std::string& provider_name,
+                                               const core::Request& request) {
+    // If prettifier is disabled or response failed, return as-is
+    if (!prettifier_enabled_.load() || !response.success) {
+        return response;
+    }
+
+    auto start_time = std::chrono::high_resolution_clock::now();
+
+    try {
+        // Get the appropriate formatter for this provider
+        prettifier::PrettifierPlugin* formatter = get_prettifier_for_provider(provider_name);
+        if (!formatter) {
+            aimux::warn("GatewayManager: No prettifier available for provider: " + provider_name);
+            return response;
+        }
+
+        // Create processing context
+        prettifier::ProcessingContext context;
+        context.provider_name = provider_name;
+        context.model_name = request.model;
+        context.original_format = "json";
+        context.requested_formats = {"toon"};
+        context.streaming_mode = false;
+        context.processing_start = std::chrono::system_clock::now();
+
+        // Apply prettifier postprocessing
+        prettifier::ProcessingResult result = formatter->postprocess_response(response, context);
+
+        auto end_time = std::chrono::high_resolution_clock::now();
+        auto duration_ms = std::chrono::duration<double, std::milli>(end_time - start_time).count();
+
+        if (result.success) {
+            // Create modified response with prettified content
+            core::Response prettified_response = response;
+            prettified_response.data = result.processed_content;
+
+            log_debug("Prettifier processed response from " + provider_name +
+                     " in " + std::to_string(duration_ms) + "ms");
+
+            return prettified_response;
+        } else {
+            aimux::warn("GatewayManager: Prettifier failed for " + provider_name + ": " + result.error_message);
+            return response; // Return original on failure
+        }
+
+    } catch (const std::exception& e) {
+        aimux::error("GatewayManager: Exception in prettifier: " + std::string(e.what()));
+        return response; // Return original on exception
+    }
 }
 
 // ============================================================================
