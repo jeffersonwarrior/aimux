@@ -137,7 +137,8 @@ export class MinimaxM2Provider extends BaseProvider {
     } catch (error: any) {
       return {
         success: false,
-        error: error.response?.data?.error?.message || error.message || 'Authentication request failed',
+        error:
+          error.response?.data?.error?.message || error.message || 'Authentication request failed',
       };
     }
   }
@@ -383,7 +384,9 @@ export class MinimaxM2Provider extends BaseProvider {
 
           // If all content was images, provide a fallback text
           if (transformed.content.length === 0) {
-            transformed.content = [{ type: 'text', text: 'I cannot process images. Please provide text-only input.' }];
+            transformed.content = [
+              { type: 'text', text: 'I cannot process images. Please provide text-only input.' },
+            ];
           }
         }
 

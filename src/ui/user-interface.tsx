@@ -1,6 +1,7 @@
 import { render } from 'ink';
 import React from 'react';
 import chalk from 'chalk';
+import readline from 'readline';
 import { ModelInfoImpl } from '../models';
 import { ModelSelector } from './components/ModelSelector';
 import { StatusMessage } from './components/StatusMessage';
@@ -188,7 +189,6 @@ export class UserInterface {
   // Ask for user input (simple)
   async askQuestion(question: string, defaultValue?: string): Promise<string> {
     return new Promise(resolve => {
-      const readline = require('readline');
       const rl = readline.createInterface({
         input: process.stdin,
         output: process.stdout,
@@ -205,8 +205,6 @@ export class UserInterface {
   // Ask for password input (masked with asterisks)
   async askPassword(question: string): Promise<string> {
     return new Promise(resolve => {
-      const readline = require('readline');
-
       // Store original settings
       const stdin = process.stdin;
       const stdout = process.stdout;

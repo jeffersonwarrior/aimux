@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ModelInfoImpl = void 0;
 exports.createModelInfo = createModelInfo;
+const types_1 = require("./types");
 class ModelInfoImpl {
     id;
     object;
@@ -22,7 +23,7 @@ class ModelInfoImpl {
     openrouter;
     datacenters;
     constructor(data) {
-        const result = require('./types').ModelInfoSchema.safeParse(data);
+        const result = types_1.ModelInfoSchema.safeParse(data);
         if (!result.success) {
             throw new Error(`Invalid model data: ${result.error.message}`);
         }

@@ -1,8 +1,14 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AimuxApp = void 0;
 const path_1 = require("path");
 const os_1 = require("os");
+const http_1 = __importDefault(require("http"));
+const https_1 = __importDefault(require("https"));
+const url_1 = require("url");
 const config_1 = require("../config");
 const models_1 = require("../models");
 const ui_1 = require("../ui");
@@ -328,13 +334,11 @@ class AimuxApp {
             console.log('[AIMUX] Z.AI: Using direct connection with model transformation');
             // Set up a simple proxy server inline to handle model transformation
             // This is a minimal version of the interceptor functionality
-            const http = require('http');
-            const url = require('url');
             const proxyPort = 8124; // Use different port to avoid conflicts
             setTimeout(() => {
-                const server = http.createServer((req, res) => {
+                const server = http_1.default.createServer((req, res) => {
                     let body = '';
-                    req.on('data', (chunk) => body += chunk);
+                    req.on('data', (chunk) => (body += chunk));
                     req.on('end', () => {
                         try {
                             const data = JSON.parse(body);
@@ -349,8 +353,8 @@ class AimuxApp {
                                 targetPath = '/api' + targetPath;
                             }
                             const targetUrl = `https://api.z.ai${targetPath}`;
-                            const parsedUrl = new url.URL(targetUrl);
-                            const proxyReq = require('https').request({
+                            const parsedUrl = new url_1.URL(targetUrl);
+                            const proxyReq = https_1.default.request({
                                 hostname: 'api.z.ai',
                                 port: 443,
                                 path: parsedUrl.pathname + parsedUrl.search,
@@ -358,8 +362,8 @@ class AimuxApp {
                                 headers: {
                                     ...req.headers,
                                     host: 'api.z.ai',
-                                    'content-length': Buffer.byteLength(JSON.stringify(data))
-                                }
+                                    'content-length': Buffer.byteLength(JSON.stringify(data)),
+                                },
                             }, (proxyRes) => {
                                 res.writeHead(proxyRes.statusCode || 200, proxyRes.headers);
                                 proxyRes.pipe(res);
@@ -434,16 +438,16 @@ class AimuxApp {
         const models = {
             'minimax-m2': {
                 default: 'minimax-claude-instant-1',
-                thinking: 'minimax-claude-3-sonnet-20240229'
+                thinking: 'minimax-claude-3-sonnet-20240229',
             },
             'z-ai': {
                 default: 'GLM-4.6',
-                thinking: 'GLM-4.6'
+                thinking: 'GLM-4.6',
             },
             'synthetic-new': {
                 default: 'claude-3-haiku-20240307',
-                thinking: 'claude-3-5-sonnet-20241022'
-            }
+                thinking: 'claude-3-5-sonnet-20241022',
+            },
         };
         return models[providerId] || models['synthetic-new'];
     }

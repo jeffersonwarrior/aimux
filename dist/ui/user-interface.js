@@ -7,6 +7,7 @@ exports.UserInterface = void 0;
 const jsx_runtime_1 = require("react/jsx-runtime");
 const ink_1 = require("ink");
 const chalk_1 = __importDefault(require("chalk"));
+const readline_1 = __importDefault(require("readline"));
 const ModelSelector_1 = require("./components/ModelSelector");
 const StatusMessage_1 = require("./components/StatusMessage");
 class UserInterface {
@@ -154,8 +155,7 @@ class UserInterface {
     // Ask for user input (simple)
     async askQuestion(question, defaultValue) {
         return new Promise(resolve => {
-            const readline = require('readline');
-            const rl = readline.createInterface({
+            const rl = readline_1.default.createInterface({
                 input: process.stdin,
                 output: process.stdout,
             });
@@ -169,7 +169,6 @@ class UserInterface {
     // Ask for password input (masked with asterisks)
     async askPassword(question) {
         return new Promise(resolve => {
-            const readline = require('readline');
             // Store original settings
             const stdin = process.stdin;
             const stdout = process.stdout;

@@ -35,10 +35,16 @@ export class ClaudeLauncher {
       if (options.env?.ANTHROPIC_BASE_URL?.includes('api.z.ai')) {
         console.log('[LAUNCHER DEBUG] Z.AI Configuration:');
         console.log(`[LAUNCHER DEBUG] ANTHROPIC_BASE_URL: ${env.ANTHROPIC_BASE_URL}`);
-        console.log(`[LAUNCHER DEBUG] ANTHROPIC_API_KEY: ${env.ANTHROPIC_API_KEY ? env.ANTHROPIC_API_KEY.substring(0, 10) + '...' : 'MISSING'}`);
+        console.log(
+          `[LAUNCHER DEBUG] ANTHROPIC_API_KEY: ${env.ANTHROPIC_API_KEY ? env.ANTHROPIC_API_KEY.substring(0, 10) + '...' : 'MISSING'}`
+        );
         console.log(`[LAUNCHER DEBUG] ANTHROPIC_DEFAULT_MODEL: ${env.ANTHROPIC_DEFAULT_MODEL}`);
-        console.log(`[LAUNCHER DEBUG] ANTHROPIC_DEFAULT_SONNET_MODEL: ${env.ANTHROPIC_DEFAULT_SONNET_MODEL}`);
-        console.log(`[LAUNCHER DEBUG] CLAUDE_CODE_SUBAGENT_MODEL: ${env.CLAUDE_CODE_SUBAGENT_MODEL}`);
+        console.log(
+          `[LAUNCHER DEBUG] ANTHROPIC_DEFAULT_SONNET_MODEL: ${env.ANTHROPIC_DEFAULT_SONNET_MODEL}`
+        );
+        console.log(
+          `[LAUNCHER DEBUG] CLAUDE_CODE_SUBAGENT_MODEL: ${env.CLAUDE_CODE_SUBAGENT_MODEL}`
+        );
       }
 
       // Prepare command arguments

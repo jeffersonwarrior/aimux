@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ModelCache = void 0;
 const promises_1 = require("fs/promises");
+const path_1 = require("path");
 const info_1 = require("./info");
 class ModelCache {
     cacheFile;
@@ -41,7 +42,7 @@ class ModelCache {
     async save(models) {
         try {
             // Ensure parent directory exists
-            const parentDir = require('path').dirname(this.cacheFile);
+            const parentDir = (0, path_1.dirname)(this.cacheFile);
             await (0, promises_1.mkdir)(parentDir, { recursive: true });
             const cacheData = {
                 models: models.map(model => model.toJSON()),

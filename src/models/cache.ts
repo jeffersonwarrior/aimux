@@ -1,5 +1,5 @@
 import { readFile, writeFile, mkdir, stat, unlink } from 'fs/promises';
-import { join } from 'path';
+import { join, dirname } from 'path';
 import { ModelInfo, CacheInfo } from './types';
 import { ModelInfoImpl } from './info';
 
@@ -51,7 +51,7 @@ export class ModelCache {
   async save(models: ModelInfoImpl[]): Promise<boolean> {
     try {
       // Ensure parent directory exists
-      const parentDir = require('path').dirname(this.cacheFile);
+      const parentDir = dirname(this.cacheFile);
       await mkdir(parentDir, { recursive: true });
 
       const cacheData = {

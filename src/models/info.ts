@@ -1,4 +1,4 @@
-import { ModelInfo } from './types';
+import { ModelInfo, ModelInfoSchema } from './types';
 
 export class ModelInfoImpl implements ModelInfo {
   id: string;
@@ -32,7 +32,7 @@ export class ModelInfoImpl implements ModelInfo {
   }>;
 
   constructor(data: ModelInfo) {
-    const result = require('./types').ModelInfoSchema.safeParse(data);
+    const result = ModelInfoSchema.safeParse(data);
     if (!result.success) {
       throw new Error(`Invalid model data: ${result.error.message}`);
     }

@@ -34,57 +34,57 @@ export declare class AimuxApp {
         selectedThinkingModel: string;
         firstRunCompleted: boolean;
         providers?: Record<string, {
-            apiKey: string;
             name: string;
+            timeout: number;
+            apiKey: string;
             enabled: boolean;
             priority: number;
-            timeout: number;
             maxRetries: number;
+            models?: string[] | undefined;
             baseUrl?: string | undefined;
             anthropicBaseUrl?: string | undefined;
             modelsApiUrl?: string | undefined;
-            models?: string[] | undefined;
             capabilities?: ("thinking" | "vision" | "tools")[] | undefined;
         }> | undefined;
         multiProvider?: {
             providers: {
                 'minimax-m2'?: {
-                    apiKey: string;
                     name: string;
+                    timeout: number;
+                    apiKey: string;
                     enabled: boolean;
                     priority: number;
-                    timeout: number;
                     maxRetries: number;
+                    models?: string[] | undefined;
                     baseUrl?: string | undefined;
                     anthropicBaseUrl?: string | undefined;
                     modelsApiUrl?: string | undefined;
-                    models?: string[] | undefined;
                     capabilities?: ("thinking" | "vision" | "tools")[] | undefined;
                 } | undefined;
                 'z-ai'?: {
-                    apiKey: string;
                     name: string;
+                    timeout: number;
+                    apiKey: string;
                     enabled: boolean;
                     priority: number;
-                    timeout: number;
                     maxRetries: number;
+                    models?: string[] | undefined;
                     baseUrl?: string | undefined;
                     anthropicBaseUrl?: string | undefined;
                     modelsApiUrl?: string | undefined;
-                    models?: string[] | undefined;
                     capabilities?: ("thinking" | "vision" | "tools")[] | undefined;
                 } | undefined;
                 'synthetic-new'?: {
-                    apiKey: string;
                     name: string;
+                    timeout: number;
+                    apiKey: string;
                     enabled: boolean;
                     priority: number;
-                    timeout: number;
                     maxRetries: number;
+                    models?: string[] | undefined;
                     baseUrl?: string | undefined;
                     anthropicBaseUrl?: string | undefined;
                     modelsApiUrl?: string | undefined;
-                    models?: string[] | undefined;
                     capabilities?: ("thinking" | "vision" | "tools")[] | undefined;
                 } | undefined;
             };
