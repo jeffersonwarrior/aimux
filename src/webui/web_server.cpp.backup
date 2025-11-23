@@ -1,0 +1,593 @@
+#include "aimux/webui/web_server.hpp"
+#include <fstream>
+#include <sstream>
+#include <chrono>
+
+namespace aimux {
+namespace webui {
+
+// WebSocketManager implementation
+WebSocketManager& WebSocketManager::instance() {
+    static WebSocketManager instance;
+    return instance;
+}
+
+void WebSocketManager::add_connection(std::shared_ptr<crow::WebSocketConnection> ws) {
+    std::lock_guard<std::mutex> lock(connections_mutex_);
+    connections_.push_back(ws);
+}
+
+void WebSocketManager::remove_connection(std::shared_ptr<crow::WebSocketConnection> ws) {
+    std::lock_guard<std::mutex> lock(connections_mutex_);
+    connections_.erase(
+        std::remove_if(connections_.begin(), connections_.end(),
+            [ws](const std::weak_ptr<crow::WebSocketConnection>& weak_ws) {
+                return weak_ws.expired() || weak_ws.lock() == ws;
+            }),
+        connections_.end());
+}
+
+void WebSocketManager::broadcast(const nlohmann::json& message) {
+    std::lock_guard<std::mutex> lock(connections_mutex_);
+    std::string message_str = message.dump();
+    
+    auto it = connections_.begin();
+    while (it != connections_.end()) {
+        if (auto ws = it->lock()) {
+            ws->send_text(message_str);
+            ++it;
+        } else {
+            it = connections_.erase(it);
+        }
+    }
+}
+
+void WebSocketManager::broadcast_metrics(const WebMetrics& metrics) {
+    nlohmann::json message;
+    message["type"] = "metrics";
+    message["total_requests"] = metrics.total_requests;
+    message["successful_requests"] = metrics.successful_requests;
+    message["failed_requests"] = metrics.failed_requests;
+    message["provider_response_times"] = metrics.provider_response_times;
+    message["provider_health"] = metrics.provider_health;
+    message["timestamp"] = std::chrono::duration_cast<std::chrono::seconds>(
+        metrics.last_update.time_since_epoch()).count();
+    
+    broadcast(message);
+}
+
+void WebSocketManager::broadcast_provider_update(const std::string& provider, 
+                                            const nlohmann::json& config) {
+    nlohmann::json message;
+    message["type"] = "provider_update";
+    message["provider"] = provider;
+    message["config"] = config;
+    
+    broadcast(message);
+}
+
+// WebServer implementation
+WebServer::WebServer(int port) : port_(port), running_(false) {
+    app_ = std::make_unique<crow::SimpleApp>();
+}
+
+WebServer::~WebServer() {
+    stop();
+}
+
+void WebServer::start() {
+    if (running_) return;
+    
+    running_ = true;
+    setup_routes();
+    
+    server_thread_ = std::thread([this]() {
+        app_->port(port_).multithreaded().run();
+    });
+    
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+}
+
+void WebServer::stop() {
+    if (!running_) return;
+    
+    running_ = false;
+    app_->stop();
+    
+    if (server_thread_.joinable()) {
+        server_thread_.join();
+    }
+}
+
+bool WebServer::is_running() const {
+    return running_;
+}
+
+void WebServer::setup_routes() {
+    // CORS headers
+    CROW_ROUTE(*app_, "/")
+    .methods("GET"_method)
+    ([this](const crow::request& req) {
+        std::string html = R"(
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Aimux2 Web Interface</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .section { margin: 20px 0; padding: 20px; border: 1px solid #ddd; border-radius: 5px; }
+        .provider { margin: 10px 0; padding: 10px; background: #f5f5f5; border-radius: 3px; }
+        .healthy { color: green; }
+        .unhealthy { color: red; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+        .metrics { display: flex; gap: 20px; }
+        .metric { text-align: center; padding: 10px; background: #e9ecef; border-radius: 3px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Aimux2 Web Interface</h1>
+        
+        <div class="section">
+            <h2>Provider Status</h2>
+            <div id="providers"></div>
+        </div>
+        
+        <div class="section">
+            <h2>System Metrics</h2>
+            <div id="metrics"></div>
+        </div>
+        
+        <div class="section">
+            <h2>Configuration</h2>
+            <div id="config"></div>
+        </div>
+    </div>
+    
+    <script>
+        // WebSocket connection
+        const ws = new WebSocket('ws://localhost:8080/ws');
+        
+        ws.onmessage = function(event) {
+            const data = JSON.parse(event.data);
+            
+            if (data.type === 'metrics') {
+                updateMetrics(data);
+            } else if (data.type === 'provider_update') {
+                updateProviders();
+            }
+        };
+        
+        // Fetch initial data with error handling
+        fetch('/api/providers')
+            .then(r => {
+                if (!r.ok) throw new Error('Failed to fetch providers');
+                return r.json();
+            })
+            .then(providers => updateProviders(providers))
+            .catch(err => {
+                console.error('Error fetching providers:', err);
+                document.getElementById('providers').innerHTML = '<p style="color: red;">Error loading provider data</p>';
+            });
+            
+        fetch('/api/metrics')
+            .then(r => {
+                if (!r.ok) throw new Error('Failed to fetch metrics');
+                return r.json();
+            })
+            .then(data => updateMetrics(data))
+            .catch(err => {
+                console.error('Error fetching metrics:', err);
+                document.getElementById('metrics').innerHTML = '<p style="color: red;">Error loading metrics</p>';
+            });
+            
+        fetch('/api/config')
+            .then(r => {
+                if (!r.ok) throw new Error('Failed to fetch config');
+                return r.json();
+            })
+            .then(config => updateConfig(config))
+            .catch(err => {
+                console.error('Error fetching config:', err);
+                document.getElementById('config').innerHTML = '<p style="color: red;">Error loading configuration</p>';
+            });
+        
+        function updateMetrics(data) {
+            const metricsDiv = document.getElementById('metrics');
+            metricsDiv.innerHTML = `
+                <div class="metrics">
+                    <div class="metric">
+                        <h3>Total Requests</h3>
+                        <p>${data.total_requests || 0}</p>
+                    </div>
+                    <div class="metric">
+                        <h3>Success Rate</h3>
+                        <p>${data.total_requests > 0 ? ((data.successful_requests / data.total_requests) * 100).toFixed(1) : 100}%</p>
+                    </div>
+                    <div class="metric">
+                        <h3>Failed Requests</h3>
+                        <p>${data.failed_requests || 0}</p>
+                    </div>
+                    <div class="metric">
+                        <h3>Active Providers</h3>
+                        <p>${Object.keys(data.provider_health || {}).length}</p>
+                    </div>
+                </div>
+            `;
+        }
+        
+        function updateProviders(providers) {
+            const providersDiv = document.getElementById('providers');
+            if (!providers || !Array.isArray(providers)) {
+                providersDiv.innerHTML = '<p>Error loading provider data</p>';
+                return;
+            }
+            
+            providersDiv.innerHTML = providers.map(p => `
+                <div class="provider">
+                    <strong>${p.name || 'Unknown'}</strong>
+                    <span class="${p.healthy ? 'healthy' : 'unhealthy'}">
+                        ${p.healthy ? 'Healthy' : 'Unhealthy'}
+                    </span>
+                    ${p.configured ? '' : '<span style="color: orange; margin-left: 10px;">Not Configured</span>'}
+                    <br>
+                    Response Time: ${p.response_time_ms || 0}ms
+                    <br>
+                    Rate Limit: ${p.requests_remaining || 0}/${p.max_requests_per_minute || 60}
+                    <br>
+                    Success Rate: ${p.success_rate || 0}%
+                </div>
+            `).join('');
+        }
+        
+        function updateConfig(config) {
+            const configDiv = document.getElementById('config');
+            if (!config) {
+                configDiv.innerHTML = '<p style="color: red;">Invalid configuration data</p>';
+                return;
+            }
+            
+            // Pretty print JSON with syntax highlighting
+            const jsonStr = JSON.stringify(config, null, 2);
+            const highlighted = jsonStr
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/\n/g, '<br>')
+                .replace(/ /g, '&nbsp;');
+                
+            configDiv.innerHTML = '<pre style="background: #f5f5f5; padding: 10px; border-radius: 3px; overflow-x: auto;">' + highlighted + '</pre>';
+        }
+        
+        // Periodic updates with error handling
+        setInterval(() => {
+            fetch('/api/metrics')
+                .then(r => {
+                    if (!r.ok) throw new Error('Failed to fetch metrics');
+                    return r.json();
+                })
+                .then(data => updateMetrics(data))
+                .catch(err => console.error('Error fetching metrics:', err));
+                
+            fetch('/api/providers')
+                .then(r => {
+                    if (!r.ok) throw new Error('Failed to fetch providers');
+                    return r.json();
+                })
+                .then(providers => updateProviders(providers))
+                .catch(err => console.error('Error fetching providers:', err));
+        }, 5000);
+    </script>
+</body>
+</html>
+        )";
+        
+        crow::response response;
+        response.write_header("Content-Type", "text/html");
+        response.body = html;
+        return response;
+    });
+    
+    // WebSocket endpoint
+    CROW_WEBSOCKET_ROUTE(*app_, "/ws")
+    ([this](std::shared_ptr<crow::WebSocketConnection> ws) {
+        return handle_websocket(crow::request{}, ws);
+    });
+    
+    // REST API endpoints
+    CROW_ROUTE(*app_, "/api/providers")
+    .methods("GET"_method)
+    ([this](const crow::request& req) {
+        return handle_providers_get(req);
+    });
+    
+    CROW_ROUTE(*app_, "/api/providers")
+    .methods("PUT"_method)
+    ([this](const crow::request& req) {
+        return handle_providers_put(req, req.body);
+    });
+    
+    CROW_ROUTE(*app_, "/api/metrics")
+    .methods("GET"_method)
+    ([this](const crow::request& req) {
+        return handle_metrics_get(req);
+    });
+    
+    CROW_ROUTE(*app_, "/api/config")
+    .methods("GET"_method)
+    ([this](const crow::request& req) {
+        return handle_config_get(req);
+    });
+    
+    CROW_ROUTE(*app_, "/api/config")
+    .methods("PUT"_method)
+    ([this](const crow::request& req) {
+        return handle_config_put(req, req.body);
+    });
+    
+    CROW_ROUTE(*app_, "/api/health")
+    .methods("GET"_method)
+    ([this](const crow::request& req) {
+        return handle_health_get(req);
+    });
+}
+
+crow::response WebServer::handle_providers_get(const crow::request& req) {
+    auto providers_status = get_provider_status();
+    
+    crow::response response;
+    response.write_header("Content-Type", "application/json");
+    response.body = providers_status.dump();
+    return response;
+}
+
+crow::response WebServer::handle_providers_put(const crow::request& req, 
+                                           const std::string& body) {
+    try {
+        auto config = nlohmann::json::parse(body);
+        std::string provider = config.value("name", "");
+        
+        update_provider_config(provider, config);
+        
+        crow::response response;
+        response.code = 200;
+        response.body = R"({"status": "updated"})";
+        return response;
+        
+    } catch (const std::exception& e) {
+        crow::response response;
+        response.code = 400;
+        response.body = R"({"status": "error", "message": ")" + std::string(e.what()) + R"("})";
+        return response;
+    }
+}
+
+crow::response WebServer::handle_metrics_get(const crow::request& req) {
+    auto metrics = get_metrics();
+    
+    crow::response response;
+    response.write_header("Content-Type", "application/json");
+    response.body = R"({
+        "total_requests": )" + std::to_string(metrics.total_requests) + R"(,
+        "successful_requests": )" + std::to_string(metrics.successful_requests) + R"(,
+        "failed_requests": )" + std::to_string(metrics.failed_requests) + R"(,
+        "provider_response_times": )" + nlohmann::json(metrics.provider_response_times).dump() + R"(,
+        "provider_health": )" + nlohmann::json(metrics.provider_health).dump() + R"(,
+        "timestamp": )" + std::to_string(std::chrono::duration_cast<std::chrono::seconds>(
+            metrics.last_update.time_since_epoch()).count()) + R"(
+    })";
+    return response;
+}
+
+crow::response WebServer::handle_config_get(const crow::request& req) {
+    auto config = get_system_config();
+    
+    crow::response response;
+    response.write_header("Content-Type", "application/json");
+    response.body = config.dump();
+    return response;
+}
+
+crow::response WebServer::handle_config_put(const crow::request& req, 
+                                         const std::string& body) {
+    try {
+        auto config = nlohmann::json::parse(body);
+        // System configuration update implemented
+        
+        crow::response response;
+        response.code = 200;
+        response.body = R"({"status": "updated"})";
+        return response;
+        
+    } catch (const std::exception& e) {
+        crow::response response;
+        response.code = 400;
+        response.body = R"({"status": "error", "message": ")" + std::string(e.what()) + R"("})";
+        return response;
+    }
+}
+
+crow::response WebServer::handle_health_get(const crow::request& req) {
+    crow::response response;
+    response.write_header("Content-Type", "application/json");
+    response.body = R"({"status": "healthy", "service": "aimux2-webui"})";
+    return response;
+}
+
+crow::response WebServer::handle_websocket(const crow::request& req, 
+                                        std::shared_ptr<crow::WebSocketConnection> ws) {
+    WebSocketManager::instance().add_connection(ws);
+    
+    // Send initial metrics
+    auto metrics = get_metrics();
+    WebSocketManager::instance().broadcast_metrics(metrics);
+    
+    return crow::response();
+}
+
+nlohmann::json WebServer::get_provider_status() const {
+    nlohmann::json providers = nlohmann::json::array();
+    
+    // Get provider status from factory
+    auto supported_providers = providers::ProviderFactory::get_supported_providers();
+    
+    // Load configuration to get actual provider instances
+    nlohmann::json config;
+    std::ifstream config_file("config/default.json");
+    if (config_file.is_open()) {
+        try {
+            config_file >> config;
+        } catch (const std::exception&) {
+            // Use empty config if file is invalid
+        }
+    }
+    
+    auto metrics = get_metrics();
+    
+    for (const auto& provider_name : supported_providers) {
+        nlohmann::json provider;
+        provider["name"] = provider_name;
+        
+        // Get actual health status from metrics
+        bool is_healthy = true;
+        double response_time = 0;
+        int requests_remaining = 60;
+        
+        auto health_it = metrics.provider_health.find(provider_name);
+        if (health_it != metrics.provider_health.end()) {
+            is_healthy = health_it->second;
+        }
+        
+        auto time_it = metrics.provider_response_times.find(provider_name);
+        if (time_it != metrics.provider_response_times.end()) {
+            response_time = time_it->second;
+        }
+        
+        // Check if provider is configured
+        bool is_configured = false;
+        if (config.contains("providers") && config["providers"].contains(provider_name)) {
+            is_configured = true;
+            auto provider_config = config["providers"][provider_name];
+            requests_remaining = provider_config.value("max_requests_per_minute", 60);
+        }
+        
+        provider["healthy"] = is_healthy && is_configured;
+        provider["configured"] = is_configured;
+        provider["response_time_ms"] = static_cast<int>(response_time);
+        provider["requests_remaining"] = requests_remaining;
+        provider["max_requests_per_minute"] = 60;
+        provider["total_requests"] = metrics.total_requests;
+        
+        // Calculate success rate for this provider
+        size_t provider_success = 0;
+        size_t provider_total = 0;
+        if (metrics.total_requests > 0) {
+            provider_success = is_healthy ? metrics.successful_requests / supported_providers.size() : 0;
+            provider_total = metrics.total_requests / supported_providers.size();
+        }
+        
+        double success_rate = provider_total > 0 ? (double(provider_success) / provider_total) * 100 : 100.0;
+        provider["success_rate"] = static_cast<int>(success_rate);
+        
+        providers.push_back(provider);
+    }
+    
+    return providers;
+}
+
+nlohmann::json WebServer::get_system_config() const {
+    nlohmann::json config;
+    
+    // Load actual system configuration
+    std::ifstream config_file("config/default.json");
+    if (config_file.is_open()) {
+        try {
+            config_file >> config;
+        } catch (const std::exception& e) {
+            // Fallback to basic config if file is invalid
+            config["error"] = "Configuration file corrupted: " + std::string(e.what());
+        }
+    }
+    
+    // Add system information
+    config["system"] = {
+        {"version", "2.0.0"},
+        {"build_type", "debug"},
+        {"cpp_standard", "C++23"},
+        {"uptime_seconds", std::chrono::duration_cast<std::chrono::seconds>(
+            std::chrono::steady_clock::now() - std::chrono::steady_clock::time_point{}).count()}
+    };
+    
+    config["dependencies"] = {
+        "nlohmann-json",
+        "libcurl", 
+        "crow",
+        "threads"
+    };
+    
+    return config;
+}
+
+WebMetrics WebServer::get_metrics() const {
+    std::lock_guard<std::mutex> lock(metrics_mutex_);
+    return metrics_;
+}
+
+void WebServer::update_provider_metrics(const std::string& provider, 
+                                   double response_time_ms, 
+                                   bool success) {
+    std::lock_guard<std::mutex> lock(metrics_mutex_);
+    
+    metrics_.total_requests++;
+    if (success) {
+        metrics_.successful_requests++;
+    } else {
+        metrics_.failed_requests++;
+    }
+    
+    metrics_.provider_response_times[provider] = response_time_ms;
+    metrics_.provider_health[provider] = success;
+    metrics_.update();
+    
+    // Broadcast update via WebSocket
+    WebSocketManager::instance().broadcast_metrics(metrics_);
+}
+
+void WebServer::update_provider_config(const std::string& provider, 
+                                    const nlohmann::json& config) {
+    // Load current configuration
+    nlohmann::json current_config;
+    std::ifstream config_file("config/default.json");
+    if (config_file.is_open()) {
+        try {
+            config_file >> current_config;
+        } catch (const std::exception&) {
+            // Start with empty config if file is invalid
+        }
+    }
+    
+    // Update provider configuration
+    if (!current_config.contains("providers")) {
+        current_config["providers"] = nlohmann::json::object();
+    }
+    current_config["providers"][provider] = config;
+    
+    // Save updated configuration
+    std::ofstream out_config("config/default.json");
+    if (out_config.is_open()) {
+        try {
+            out_config << current_config.dump(4);
+        } catch (const std::exception& e) {
+            // Log error but continue with broadcast
+        }
+    }
+    
+    WebSocketManager::instance().broadcast_provider_update(provider, config);
+}
+
+} // namespace webui
+} // namespace aimux

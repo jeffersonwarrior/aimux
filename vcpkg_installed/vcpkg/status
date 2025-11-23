@@ -1,0 +1,229 @@
+Package: vcpkg-cmake
+Version: 2024-04-23
+Architecture: arm64-osx
+Multi-Arch: same
+Abi: d12a80368445a6e5464c233de4837977382e15ac86bf99850ab58f814cf935be
+Status: purge ok not-installed
+
+Package: vcpkg-cmake-get-vars
+Version: 2025-05-29
+Depends: vcpkg-cmake
+Architecture: arm64-osx
+Multi-Arch: same
+Abi: 7edd02a61b47125348d69f2f5f28d744f54dd85f856ec366202c8b0923b4ae80
+Status: purge ok not-installed
+
+Package: vcpkg-cmake-config
+Version: 2024-05-23
+Architecture: arm64-osx
+Multi-Arch: same
+Abi: 63df5b300a68b15b9d993d36bc30bf7f7626aa8eb9feff4652a54a8476c0758a
+Status: purge ok not-installed
+
+Package: openssl
+Version: 3.6.0
+Port-Version: 3
+Depends: vcpkg-cmake, vcpkg-cmake-config, vcpkg-cmake-get-vars
+Architecture: arm64-osx
+Multi-Arch: same
+Abi: 2298e54ae76c439080fb818d4ed47450474dcf9874bf6eb91a0ba67c57c60627
+Description: OpenSSL is an open source project that provides a robust, commercial-grade, and full-featured toolkit for the Transport Layer Security (TLS) and Secure Sockets Layer (SSL) protocols. It is also a general-purpose cryptography library.
+Status: purge ok not-installed
+
+Package: nghttp2
+Version: 1.68.0
+Depends: vcpkg-cmake
+Architecture: arm64-osx
+Multi-Arch: same
+Abi: dbb88f8dda220c608cd4cab0fbad51487f5df871cbeea376304cb276088f48d1
+Description: Implementation of the Hypertext Transfer Protocol version 2 in C
+Status: purge ok not-installed
+
+Package: zlib
+Version: 1.3.1
+Depends: vcpkg-cmake
+Architecture: arm64-osx
+Multi-Arch: same
+Abi: 7d9ef549ccce1bcae3539b4acb902c61ddd43bb9c74966d29e5842e28fe01191
+Description: A compression library
+Status: purge ok not-installed
+
+Package: curl
+Version: 8.17.0
+Depends: vcpkg-cmake, vcpkg-cmake-config, zlib
+Architecture: arm64-osx
+Multi-Arch: same
+Abi: bca83745fd6329650b18a0023c5d99fdc060c5c487b8b8dcd60dca8389090ae2
+Description: A library for transferring data with URLs
+Default-Features: non-http, ssl
+Status: purge ok not-installed
+
+Package: curl
+Feature: http2
+Depends: nghttp2
+Architecture: arm64-osx
+Multi-Arch: same
+Description: HTTP2 support
+Status: purge ok not-installed
+
+Package: curl
+Feature: non-http
+Architecture: arm64-osx
+Multi-Arch: same
+Description: Enables protocols beyond HTTP/HTTPS/HTTP2/HTTP3
+Status: purge ok not-installed
+
+Package: curl
+Feature: openssl
+Depends: openssl
+Architecture: arm64-osx
+Multi-Arch: same
+Description: TLS support (OpenSSL)
+Status: purge ok not-installed
+
+Package: curl
+Feature: ssl
+Architecture: arm64-osx
+Multi-Arch: same
+Description: Default SSL / TLS implementation.
+Status: purge ok not-installed
+
+Package: gtest
+Version: 1.17.0
+Port-Version: 2
+Depends: vcpkg-cmake, vcpkg-cmake-config
+Architecture: arm64-osx
+Multi-Arch: same
+Abi: b945218d2705dedd6bcd0e676073b1faa762d8c53383ab00957308c2e474779f
+Description: Google Testing and Mocking Framework
+Status: purge ok not-installed
+
+Package: nlohmann-json
+Version: 3.12.0
+Port-Version: 1
+Depends: vcpkg-cmake, vcpkg-cmake-config
+Architecture: arm64-osx
+Multi-Arch: same
+Abi: ff05572c89c369ec60fd4b9925bde20bb9064ca3e47dffadb7cebe48882a4115
+Description: JSON for Modern C++
+Status: purge ok not-installed
+
+Package: asio
+Version: 1.32.0
+Depends: vcpkg-cmake, vcpkg-cmake-config
+Architecture: arm64-osx
+Multi-Arch: same
+Abi: 46b878716bd7eac01a81a54521aefa60cb267242f8eb522f9a718a0706bb999f
+Description: Asio is a cross-platform C++ library for network and low-level I/O programming that provides developers with a consistent asynchronous model using a modern C++ approach.
+Status: purge ok not-installed
+
+Package: crow
+Version: 1.3.0
+Depends: asio, vcpkg-cmake, vcpkg-cmake-config
+Architecture: arm64-osx
+Multi-Arch: same
+Abi: c1c4075237a5896dcd23fbab91faa0a06512f04146132b47d8ecf9190c3d3b72
+Description: Very fast and easy to use C++ micro web framework
+Status: purge ok not-installed
+
+Package: vcpkg-cmake-config
+Version: 2024-05-23
+Architecture: x64-linux
+Multi-Arch: same
+Abi: fc1165848ff6c586a0a34e1b370c7e1eb04f258f3fd375720bbc2749b3d23003
+Status: install ok installed
+
+Package: vcpkg-cmake
+Version: 2024-04-23
+Architecture: x64-linux
+Multi-Arch: same
+Abi: bb050c8ecbaa0714613e627e33cd1b0497c7fbdac12aa37df758effd4f881f01
+Status: install ok installed
+
+Package: asio
+Version: 1.32.0
+Depends: vcpkg-cmake, vcpkg-cmake-config
+Architecture: x64-linux
+Multi-Arch: same
+Abi: b7a164b239355cb9a59bc983a4cc177bdb802cd983d0ad0d362d93d79668c42b
+Description: Asio is a cross-platform C++ library for network and low-level I/O programming that provides developers with a consistent asynchronous model using a modern C++ approach.
+Status: install ok installed
+
+Package: crow
+Version: 1.3.0
+Depends: asio, vcpkg-cmake, vcpkg-cmake-config
+Architecture: x64-linux
+Multi-Arch: same
+Abi: 4bc5a54710726efa4fe41606959acb4f81fe485b2341ba477eebf2d0c56ec15b
+Description: Very fast and easy to use C++ micro web framework
+Status: install ok installed
+
+Package: vcpkg-cmake-get-vars
+Version: 2025-05-29
+Depends: vcpkg-cmake
+Architecture: x64-linux
+Multi-Arch: same
+Abi: fa011f5beff0da3d14699797f3f0c7d56dfcc24e9ab5f346a4f0195ff3beb1fa
+Status: install ok installed
+
+Package: openssl
+Version: 3.6.0
+Port-Version: 3
+Depends: vcpkg-cmake, vcpkg-cmake-config, vcpkg-cmake-get-vars
+Architecture: x64-linux
+Multi-Arch: same
+Abi: 0d282aa9fc8bd86f512e142f4a57dc11700904acac33d25f253a299d4a8bcc86
+Description: OpenSSL is an open source project that provides a robust, commercial-grade, and full-featured toolkit for the Transport Layer Security (TLS) and Secure Sockets Layer (SSL) protocols. It is also a general-purpose cryptography library.
+Status: install ok installed
+
+Package: zlib
+Version: 1.3.1
+Depends: vcpkg-cmake
+Architecture: x64-linux
+Multi-Arch: same
+Abi: 788449ebcdbff97225c609dcba55382a15ebd331e8cf5aa02251c4b093437ab1
+Description: A compression library
+Status: install ok installed
+
+Package: curl
+Version: 8.17.0
+Depends: vcpkg-cmake, vcpkg-cmake-config, zlib
+Architecture: x64-linux
+Multi-Arch: same
+Abi: a4e898de4ff260b907b26634e70f17f8b4d7d55edc199a444379b4ed1931b0b0
+Description: A library for transferring data with URLs
+Default-Features: non-http, ssl
+Status: install ok installed
+
+Package: curl
+Feature: non-http
+Architecture: x64-linux
+Multi-Arch: same
+Description: Enables protocols beyond HTTP/HTTPS/HTTP2/HTTP3
+Status: install ok installed
+
+Package: curl
+Feature: openssl
+Depends: openssl
+Architecture: x64-linux
+Multi-Arch: same
+Description: TLS support (OpenSSL)
+Status: install ok installed
+
+Package: curl
+Feature: ssl
+Architecture: x64-linux
+Multi-Arch: same
+Description: Default SSL / TLS implementation.
+Status: install ok installed
+
+Package: nlohmann-json
+Version: 3.12.0
+Port-Version: 1
+Depends: vcpkg-cmake, vcpkg-cmake-config
+Architecture: x64-linux
+Multi-Arch: same
+Abi: 05f011a7f721d7e51f74f09f2b84f85d5bb3e340efee9b8b36cdada4c9f5327d
+Description: JSON for Modern C++
+Status: install ok installed
+

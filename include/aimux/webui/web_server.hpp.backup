@@ -1,0 +1,110 @@
+#pragma once
+
+#include <crow.h>
+#include <memory>
+#include <thread>
+#include <atomic>
+#include <nlohmann/json.hpp>
+#include "aimux/core/bridge.hpp"
+#include "aimux/providers/provider_impl.hpp"
+
+namespace aimux {
+namespace webui {
+
+/**
+ * @brief Real-time metrics data structure
+ */
+struct WebMetrics {
+    size_t total_requests = 0;
+    size_t successful_requests = 0;
+    size_t failed_requests = 0;
+    std::map<std::string, double> provider_response_times;
+    std::map<std::string, bool> provider_health;
+    std::chrono::steady_clock::time_point last_update;
+    
+    void update() {
+        last_update = std::chrono::steady_clock::now();
+    }
+};
+
+/**
+ * @brief Embedded web server for provider management and metrics
+ */
+class WebServer {
+public:
+    explicit WebServer(int port = 8080);
+    ~WebServer();
+    
+    // Server lifecycle
+    void start();
+    void stop();
+    bool is_running() const;
+    
+    // Metrics
+    WebMetrics get_metrics() const;
+    void update_provider_metrics(const std::string& provider, 
+                           double response_time_ms, 
+                           bool success);
+    
+    // Configuration
+    void update_provider_config(const std::string& provider, 
+                           const nlohmann::json& config);
+    
+private:
+    // Server infrastructure
+    std::unique_ptr<crow::SimpleApp> app_;
+    std::thread server_thread_;
+    std::atomic<bool> running_;
+    int port_;
+    
+    // Metrics
+    mutable std::mutex metrics_mutex_;
+    WebMetrics metrics_;
+    
+    // API endpoints
+    void setup_routes();
+    
+    // Route handlers
+    crow::response handle_providers_get(const crow::request& req);
+    crow::response handle_providers_put(const crow::request& req, 
+                                   const std::string& body);
+    crow::response handle_metrics_get(const crow::request& req);
+    crow::response handle_config_get(const crow::request& req);
+    crow::response handle_config_put(const crow::request& req, 
+                                 const std::string& body);
+    crow::response handle_health_get(const crow::request& req);
+    crow::response handle_websocket(const crow::request& req, 
+                                std::shared_ptr<crow::WebSocketConnection> ws);
+    
+    // Helper methods
+    nlohmann::json get_provider_status() const;
+    nlohmann::json get_system_config() const;
+    std::string serve_file(const std::string& path) const;
+    
+    // WebSocket broadcast
+    void broadcast_metrics_update();
+    void broadcast_config_change(const std::string& provider);
+};
+
+/**
+ * @brief WebSocket manager for real-time updates
+ */
+class WebSocketManager {
+public:
+    static WebSocketManager& instance();
+    
+    void add_connection(std::shared_ptr<crow::WebSocketConnection> ws);
+    void remove_connection(std::shared_ptr<crow::WebSocketConnection> ws);
+    void broadcast(const nlohmann::json& message);
+    void broadcast_metrics(const WebMetrics& metrics);
+    void broadcast_provider_update(const std::string& provider, 
+                               const nlohmann::json& config);
+    
+private:
+    WebSocketManager() = default;
+    mutable std::mutex connections_mutex_;
+    std::vector<std::weak_ptr<crow::WebSocketConnection>> connections_;
+};
+
+} // namespace webui
+} // namespace aimux

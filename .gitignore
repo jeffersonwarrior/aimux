@@ -1,15 +1,29 @@
+# TypeScript / Node.js (ARCHIVED - C++ only now)
 node_modules/
+/dist/
+/build/
 *.log
-.DS_Store
-.env
-.env.local
-.env.*.local
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-/dist/
-/build/  
-/cache/
-/tmp/
 *.tgz
 *.tar.gz
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# System
+.DS_Store
+/cache/
+/tmp/
+
+# Archives (deprecated code)
+/archives/
+
+# Documentation - Only VERSION2.1.TODO.md and Audit-2.1.md tracked
+*.md
+!VERSION2.1.TODO.md
+!Audit-2.1.md
+!README.md

@@ -1,0 +1,511 @@
+#include "aimux/providers/provider_impl.hpp"
+#include "aimux/network/http_client.hpp"
+#include <sstream>
+#include <random>
+#include <fstream>
+#include <algorithm>
+#include <thread>
+
+namespace aimux {
+namespace providers {
+
+// BaseProvider implementation
+BaseProvider::BaseProvider(const std::string& name, const nlohmann::json& config)
+    : provider_name_(name), config_(config) {
+    
+    api_key_ = config.value("api_key", "");
+    endpoint_ = config.value("endpoint", "");
+    max_requests_per_minute_ = config.value("max_requests_per_minute", 60);
+    rate_limit_reset_ = std::chrono::steady_clock::now() + std::chrono::minutes(1);
+}
+
+bool BaseProvider::check_rate_limit() {
+    auto now = std::chrono::steady_clock::now();
+    
+    // Reset if minute has passed
+    if (now >= rate_limit_reset_) {
+        requests_made_ = 0;
+        rate_limit_reset_ = now + std::chrono::minutes(1);
+    }
+    
+    return requests_made_ < max_requests_per_minute_;
+}
+
+void BaseProvider::update_rate_limit() {
+    requests_made_++;
+}
+
+core::Response BaseProvider::process_response(int status_code, const std::string& response_body) {
+    core::Response response;
+    response.status_code = status_code;
+    response.provider_name = provider_name_;
+    
+    if (status_code >= 200 && status_code < 300) {
+        response.success = true;
+        response.data = response_body;
+        is_healthy_ = true;
+    } else if (status_code == 429) {
+        response.success = false;
+        response.error_message = "Rate limit exceeded";
+        is_healthy_ = false;
+    } else if (status_code >= 500) {
+        response.success = false;
+        response.error_message = "Provider server error";
+        is_healthy_ = false;
+    } else {
+        response.success = false;
+        response.error_message = "Request failed: " + std::to_string(status_code);
+    }
+    
+    return response;
+}
+
+// CerebrasProvider implementation
+CerebrasProvider::CerebrasProvider(const nlohmann::json& config) 
+    : BaseProvider("cerebras", config) {}
+
+core::Response CerebrasProvider::send_request(const core::Request& request) {
+    if (!check_rate_limit()) {
+        core::Response response;
+        response.success = false;
+        response.error_message = "Rate limit exceeded";
+        response.status_code = 429;
+        response.provider_name = provider_name_;
+        return response;
+    }
+    
+    update_rate_limit();
+    
+    try {
+        // Create HTTP client
+        auto http_client = network::HttpClientFactory::create_client();
+        http_client->add_default_header("Authorization", "Bearer " + api_key_);
+        http_client->add_default_header("Content-Type", "application/json");
+        
+        network::HttpRequest http_request;
+        http_request.url = endpoint_ + "/v1/chat/completions";
+        http_request.method = "POST";
+        http_request.body = format_cerebras_request(request);
+        http_request.timeout_ms = 30000;
+        
+        network::HttpResponse http_response = http_client->send_request(http_request);
+        
+        core::Response response = process_response(http_response.status_code, http_response.body);
+        response.response_time_ms = http_response.response_time_ms;
+        
+        return response;
+        
+    } catch (const std::exception& e) {
+        core::Response response;
+        response.success = false;
+        response.error_message = "Cerebras error: " + std::string(e.what());
+        response.status_code = 500;
+        response.provider_name = provider_name_;
+        return response;
+    }
+}
+
+bool CerebrasProvider::is_healthy() const {
+    return is_healthy_;
+}
+
+std::string CerebrasProvider::get_provider_name() const {
+    return provider_name_;
+}
+
+nlohmann::json CerebrasProvider::get_rate_limit_status() const {
+    nlohmann::json status;
+    status["provider"] = provider_name_;
+    status["requests_made"] = requests_made_;
+    status["max_requests_per_minute"] = max_requests_per_minute_;
+    status["requests_remaining"] = std::max(0, max_requests_per_minute_ - requests_made_);
+    
+    auto now = std::chrono::steady_clock::now();
+    auto reset_in_seconds = std::chrono::duration_cast<std::chrono::seconds>(rate_limit_reset_ - now).count();
+    status["reset_in_seconds"] = std::max(0LL, reset_in_seconds);
+    
+    return status;
+}
+
+std::string CerebrasProvider::format_cerebras_request(const core::Request& request) {
+    nlohmann::json cerebras_request;
+    cerebras_request["model"] = "llama3.1-70b"; // Default Cerebras model
+    cerebras_request["messages"] = request.data["messages"];
+    cerebras_request["max_tokens"] = request.data.value("max_tokens", 1000);
+    cerebras_request["temperature"] = request.data.value("temperature", 0.7);
+    
+    return cerebras_request.dump();
+}
+
+nlohmann::json CerebrasProvider::parse_cerebras_response(const std::string& response) {
+    return nlohmann::json::parse(response);
+}
+
+// ZaiProvider implementation
+ZaiProvider::ZaiProvider(const nlohmann::json& config) 
+    : BaseProvider("zai", config) {}
+
+core::Response ZaiProvider::send_request(const core::Request& request) {
+    if (!check_rate_limit()) {
+        core::Response response;
+        response.success = false;
+        response.error_message = "Rate limit exceeded";
+        response.status_code = 429;
+        response.provider_name = provider_name_;
+        return response;
+    }
+    
+    update_rate_limit();
+    
+    try {
+        auto http_client = network::HttpClientFactory::create_client();
+        http_client->add_default_header("Authorization", "Bearer " + api_key_);
+        http_client->add_default_header("Content-Type", "application/json");
+        
+        network::HttpRequest http_request;
+        http_request.url = endpoint_ + "/api/v1/chat";
+        http_request.method = "POST";
+        http_request.body = format_zai_request(request);
+        http_request.timeout_ms = 30000;
+        
+        network::HttpResponse http_response = http_client->send_request(http_request);
+        
+        core::Response response = process_response(http_response.status_code, http_response.body);
+        response.response_time_ms = http_response.response_time_ms;
+        
+        return response;
+        
+    } catch (const std::exception& e) {
+        core::Response response;
+        response.success = false;
+        response.error_message = "Z.ai error: " + std::string(e.what());
+        response.status_code = 500;
+        response.provider_name = provider_name_;
+        return response;
+    }
+}
+
+bool ZaiProvider::is_healthy() const {
+    return is_healthy_;
+}
+
+std::string ZaiProvider::get_provider_name() const {
+    return provider_name_;
+}
+
+nlohmann::json ZaiProvider::get_rate_limit_status() const {
+    nlohmann::json status;
+    status["provider"] = provider_name_;
+    status["requests_made"] = requests_made_;
+    status["max_requests_per_minute"] = max_requests_per_minute_;
+    status["requests_remaining"] = std::max(0, max_requests_per_minute_ - requests_made_);
+    
+    auto now = std::chrono::steady_clock::now();
+    auto reset_in_seconds = std::chrono::duration_cast<std::chrono::seconds>(rate_limit_reset_ - now).count();
+    status["reset_in_seconds"] = std::max(0LL, reset_in_seconds);
+    
+    return status;
+}
+
+std::string ZaiProvider::format_zai_request(const core::Request& request) {
+    nlohmann::json zai_request;
+    zai_request["model"] = "gpt-4"; // Default Z.ai model
+    zai_request["prompt"] = request.data["messages"][0]["content"];
+    zai_request["max_tokens"] = request.data.value("max_tokens", 1000);
+    
+    return zai_request.dump();
+}
+
+nlohmann::json ZaiProvider::parse_zai_response(const std::string& response) {
+    return nlohmann::json::parse(response);
+}
+
+// SyntheticProvider implementation
+SyntheticProvider::SyntheticProvider(const nlohmann::json& config) 
+    : BaseProvider("synthetic", config), rng_(std::random_device{}()) {
+    
+    mock_responses_ = {
+        "This is a synthetic response from the provider.",
+        "I'm generating a mock response for testing purposes.",
+        "Here's a simulated answer from the synthetic provider.",
+        "Testing response generation from synthetic AI.",
+        "Mock AI response for integration testing."
+    };
+}
+
+core::Response SyntheticProvider::send_request(const core::Request& request) {
+    // Simulate response time
+    std::uniform_int_distribution<int> sleep_dist(50, 500);
+    std::this_thread::sleep_for(std::chrono::milliseconds(sleep_dist(rng_)));
+    
+    core::Response response;
+    response.success = true;
+    response.data = generate_mock_response(request);
+    response.status_code = 200;
+    response.provider_name = provider_name_;
+    response.response_time_ms = sleep_dist(rng_);
+    
+    update_rate_limit();
+    
+    return response;
+}
+
+bool SyntheticProvider::is_healthy() const {
+    return true; // Synthetic provider is always healthy
+}
+
+std::string SyntheticProvider::get_provider_name() const {
+    return provider_name_;
+}
+
+nlohmann::json SyntheticProvider::get_rate_limit_status() const {
+    nlohmann::json status;
+    status["provider"] = provider_name_;
+    status["requests_made"] = requests_made_;
+    status["max_requests_per_minute"] = 1000; // High limit for synthetic
+    status["requests_remaining"] = 1000 - requests_made_;
+    status["reset_in_seconds"] = 60;
+    return status;
+}
+
+std::string SyntheticProvider::generate_mock_response(const core::Request& request) {
+    std::uniform_int_distribution<int> response_dist(0, mock_responses_.size() - 1);
+    return mock_responses_[response_dist(rng_)];
+}
+
+std::string ZaiProvider::extract_model_name(const std::string& response) const {
+    try {
+        auto json_response = nlohmann::json::parse(response);
+        if (json_response.contains("model")) {
+            return json_response["model"];
+        }
+        return "gpt-4"; // Default
+    } catch (...) {
+        return "gpt-4"; // Default on error
+    }
+}
+
+// MiniMaxProvider implementation
+MiniMaxProvider::MiniMaxProvider(const nlohmann::json& config) 
+    : BaseProvider("minimax", config) {}
+
+core::Response MiniMaxProvider::send_request(const core::Request& request) {
+    if (!check_rate_limit()) {
+        core::Response response;
+        response.success = false;
+        response.error_message = "Rate limit exceeded";
+        response.status_code = 429;
+        response.provider_name = provider_name_;
+        return response;
+    }
+    
+    update_rate_limit();
+    
+    try {
+        auto http_client = network::HttpClientFactory::create_client();
+        
+        // Add MiniMax-specific auth headers
+        auto auth_headers = get_auth_headers();
+        for (const auto& header : auth_headers) {
+            http_client->add_default_header(header.first, header.second);
+        }
+        http_client->add_default_header("Content-Type", "application/json");
+        
+        network::HttpRequest http_request;
+        http_request.url = endpoint_ + "/v1/chat/completions";
+        http_request.method = "POST";
+        http_request.body = format_minimax_request(request);
+        http_request.timeout_ms = 30000;
+        
+        network::HttpResponse http_response = http_client->send_request(http_request);
+        
+        core::Response response = process_response(http_response.status_code, http_response.body);
+        response.response_time_ms = http_response.response_time_ms;
+        
+        return response;
+        
+    } catch (const std::exception& e) {
+        core::Response response;
+        response.success = false;
+        response.error_message = "MiniMax error: " + std::string(e.what());
+        response.status_code = 500;
+        response.provider_name = provider_name_;
+        return response;
+    }
+}
+
+bool MiniMaxProvider::is_healthy() const {
+    return is_healthy_;
+}
+
+std::string MiniMaxProvider::get_provider_name() const {
+    return provider_name_;
+}
+
+nlohmann::json MiniMaxProvider::get_rate_limit_status() const {
+    nlohmann::json status;
+    status["provider"] = provider_name_;
+    status["requests_made"] = requests_made_;
+    status["max_requests_per_minute"] = max_requests_per_minute_;
+    status["requests_remaining"] = std::max(0, max_requests_per_minute_ - requests_made_);
+    
+    auto now = std::chrono::steady_clock::now();
+    auto reset_in_seconds = std::chrono::duration_cast<std::chrono::seconds>(rate_limit_reset_ - now).count();
+    status["reset_in_seconds"] = std::max(0LL, reset_in_seconds);
+    
+    return status;
+}
+
+std::string MiniMaxProvider::format_minimax_request(const core::Request& request) {
+    nlohmann::json minimax_request;
+    minimax_request["model"] = "claude-3-5-sonnet-20241022"; // Default MiniMax model
+    minimax_request["messages"] = request.data["messages"];
+    minimax_request["max_tokens"] = request.data.value("max_tokens", 1000);
+    minimax_request["temperature"] = request.data.value("temperature", 0.7);
+    
+    return minimax_request.dump();
+}
+
+std::map<std::string, std::string> MiniMaxProvider::get_auth_headers() const {
+    std::map<std::string, std::string> headers;
+    headers["Authorization"] = "Bearer " + api_key_;
+    headers["X-Provider"] = "minimax-m2";
+    return headers;
+}
+
+// ProviderFactory implementation
+std::unique_ptr<core::Bridge> ProviderFactory::create_provider(
+    const std::string& provider_name,
+    const nlohmann::json& config) {
+    
+    if (provider_name == "cerebras") {
+        return std::make_unique<CerebrasProvider>(config);
+    } else if (provider_name == "zai") {
+        return std::make_unique<ZaiProvider>(config);
+    } else if (provider_name == "minimax") {
+        return std::make_unique<MiniMaxProvider>(config);
+    } else if (provider_name == "synthetic") {
+        return std::make_unique<SyntheticProvider>(config);
+    } else {
+        // Fallback to mock for unknown providers
+        return std::make_unique<core::MockBridge>(provider_name);
+    }
+}
+
+std::vector<std::string> ProviderFactory::get_supported_providers() {
+    return {"cerebras", "zai", "minimax", "synthetic", "mock"};
+}
+
+bool ProviderFactory::validate_config(const std::string& provider_name, const nlohmann::json& config) {
+    if (provider_name == "cerebras" || provider_name == "zai" || provider_name == "minimax") {
+        return config.contains("api_key") && 
+               config.contains("endpoint") &&
+               !config["api_key"].get<std::string>().empty() &&
+               !config["endpoint"].get<std::string>().empty();
+    } else if (provider_name == "synthetic") {
+        return true; // No validation needed for synthetic
+    }
+    return false;
+}
+
+// ConfigParser implementation
+nlohmann::json ConfigParser::parse_config(const std::string& config_file) {
+    std::ifstream file(config_file);
+    if (!file.is_open()) {
+        throw std::runtime_error("Could not open config file: " + config_file);
+    }
+    
+    nlohmann::json config;
+    
+    // Simple TOON format parsing (JSON for now, can be extended)
+    try {
+        file >> config;
+    } catch (const std::exception& e) {
+        throw std::runtime_error("Failed to parse config file: " + std::string(e.what()));
+    }
+    
+    if (!validate_config_structure(config)) {
+        throw std::runtime_error("Invalid config structure");
+    }
+    
+    return config;
+}
+
+std::vector<aimux::core::ProviderConfig> ConfigParser::parse_providers(const nlohmann::json& config) {
+    std::vector<aimux::core::ProviderConfig> providers;
+    
+    if (!config.contains("providers")) {
+        return providers;
+    }
+    
+    for (const auto& provider_json : config["providers"]) {
+        aimux::core::ProviderConfig provider;
+        provider.name = provider_json.value("name", "");
+        provider.endpoint = provider_json.value("endpoint", "");
+        provider.api_key = provider_json.value("api_key", "");
+        provider.models = provider_json.value("models", std::vector<std::string>{});
+        provider.max_requests_per_minute = provider_json.value("max_requests_per_minute", 60);
+        provider.enabled = provider_json.value("enabled", true);
+        
+        providers.push_back(provider);
+    }
+    
+    return providers;
+}
+
+nlohmann::json ConfigParser::generate_default_config() {
+    nlohmann::json config;
+    config["daemon"] = nlohmann::json::object();
+    config["daemon"]["port"] = 8080;
+    config["daemon"]["host"] = "localhost";
+    
+    config["logging"] = nlohmann::json::object();
+    config["logging"]["level"] = "info";
+    config["logging"]["file"] = "aimux.log";
+    
+    config["providers"] = nlohmann::json::array();
+    
+    // Add example Cerebras provider
+    nlohmann::json cerebras_provider;
+    cerebras_provider["name"] = "cerebras";
+    cerebras_provider["endpoint"] = "https://api.cerebras.ai";
+    cerebras_provider["api_key"] = "YOUR_CEREBRAS_API_KEY";
+    cerebras_provider["models"] = {"llama3.1-70b"};
+    cerebras_provider["max_requests_per_minute"] = 60;
+    cerebras_provider["enabled"] = false;
+    config["providers"].push_back(cerebras_provider);
+    
+    // Add example Z.ai provider
+    nlohmann::json zai_provider;
+    zai_provider["name"] = "zai";
+    zai_provider["endpoint"] = "https://api.z.ai";
+    zai_provider["api_key"] = "YOUR_ZAI_API_KEY";
+    zai_provider["models"] = {"gpt-4"};
+    zai_provider["max_requests_per_minute"] = 60;
+    zai_provider["enabled"] = false;
+    config["providers"].push_back(zai_provider);
+    
+    // Add synthetic provider for testing
+    nlohmann::json synthetic_provider;
+    synthetic_provider["name"] = "synthetic";
+    synthetic_provider["endpoint"] = "https://synthetic.ai";
+    synthetic_provider["api_key"] = "mock-key";
+    synthetic_provider["models"] = {"claude-3"};
+    synthetic_provider["max_requests_per_minute"] = 1000;
+    synthetic_provider["enabled"] = true;
+    config["providers"].push_back(synthetic_provider);
+    
+    return config;
+}
+
+bool ConfigParser::validate_config_structure(const nlohmann::json& config) {
+    return true; // Basic validation for now
+}
+
+nlohmann::json ConfigParser::parse_toon_value(const std::string& value) {
+    // TODO: Implement TOON format parsing
+    return nlohmann::json(value);
+}
+
+} // namespace providers
+} // namespace aimux

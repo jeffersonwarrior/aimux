@@ -1,0 +1,226 @@
+#pragma once
+
+#include <string>
+#include <vector>
+#include <memory>
+#include <map>
+#include <random>
+#include <nlohmann/json.hpp>
+#include "aimux/core/bridge.hpp"
+
+namespace aimux {
+namespace providers {
+
+/**
+ * @brief Base provider implementation
+ */
+class BaseProvider : public core::Bridge {
+public:
+    explicit BaseProvider(const std::string& name, const nlohmann::json& config);
+    virtual ~BaseProvider() = default;
+
+protected:
+    std::string provider_name_;
+    nlohmann::json config_;
+    bool is_healthy_ = true;
+    std::string api_key_;
+    std::string endpoint_;
+    
+    // Rate limiting
+    int requests_made_ = 0;
+    int max_requests_per_minute_ = 60;
+    std::chrono::steady_clock::time_point rate_limit_reset_;
+    
+    /**
+     * @brief Check rate limit before making request
+     * @return true if request allowed
+     */
+    bool check_rate_limit();
+    
+    /**
+     * @brief Update rate limit after request
+     */
+    void update_rate_limit();
+    
+    /**
+     * @brief Process API response into standard format
+     * @param status_code HTTP status code
+     * @param response_body Raw response
+     * @return Standardized Response object
+     */
+    core::Response process_response(int status_code, const std::string& response_body);
+};
+
+/**
+ * @brief Cerebras AI provider implementation
+ */
+class CerebrasProvider : public BaseProvider {
+public:
+    explicit CerebrasProvider(const nlohmann::json& config);
+    
+    core::Response send_request(const core::Request& request) override;
+    bool is_healthy() const override;
+    std::string get_provider_name() const override;
+    nlohmann::json get_rate_limit_status() const override;
+
+private:
+    /**
+     * @brief Format request for Cerebras API
+     */
+    std::string format_cerebras_request(const core::Request& request);
+    
+    /**
+     * @brief Parse Cerebras API response
+     */
+    nlohmann::json parse_cerebras_response(const std::string& response);
+};
+
+/**
+ * @brief Z.AI provider implementation
+ */
+class ZaiProvider : public BaseProvider {
+public:
+    explicit ZaiProvider(const nlohmann::json& config);
+    
+    core::Response send_request(const core::Request& request) override;
+    bool is_healthy() const override;
+    std::string get_provider_name() const override;
+    nlohmann::json get_rate_limit_status() const override;
+
+private:
+    /**
+     * @brief Format request for Z.AI API
+     */
+    std::string format_zai_request(const core::Request& request);
+    
+    /**
+     * @brief Parse Z.AI API response
+     */
+    nlohmann::json parse_zai_response(const std::string& response);
+    
+    /**
+     * @brief Extract model name from Z.AI response
+     */
+    std::string extract_model_name(const std::string& response) const;
+};
+
+/**
+ * @brief MiniMax M2 provider implementation
+ */
+class MiniMaxProvider : public BaseProvider {
+public:
+    explicit MiniMaxProvider(const nlohmann::json& config);
+    
+    core::Response send_request(const core::Request& request) override;
+    bool is_healthy() const override;
+    std::string get_provider_name() const override;
+    nlohmann::json get_rate_limit_status() const override;
+
+private:
+    /**
+     * @brief Format request for MiniMax API
+     */
+    std::string format_minimax_request(const core::Request& request);
+    
+    /**
+     * @brief Handle MiniMax-specific authentication headers
+     */
+    std::map<std::string, std::string> get_auth_headers() const;
+};
+
+/**
+ * @brief Synthetic provider for testing and fallback
+ */
+class SyntheticProvider : public BaseProvider {
+public:
+    explicit SyntheticProvider(const nlohmann::json& config);
+    
+    core::Response send_request(const core::Request& request) override;
+    bool is_healthy() const override;
+    std::string get_provider_name() const override;
+    nlohmann::json get_rate_limit_status() const override;
+
+private:
+    std::mt19937 rng_;  // Random number generator
+    
+    /**
+     * @brief Generate AI-like response
+     */
+    std::string generate_ai_response(const core::Request& request);
+    
+    /**
+     * @brief Generate task completion response
+     */
+    std::string generate_task_response(const core::Request& request);
+};
+};
+
+/**
+ * @brief Provider factory for creating real provider instances
+ */
+class ProviderFactory {
+public:
+    /**
+     * @brief Create provider instance based on configuration
+     * @param provider_name Provider type name
+     * @param config Provider configuration
+     * @return Unique pointer to provider
+     */
+    static std::unique_ptr<core::Bridge> create_provider(
+        const std::string& provider_name,
+        const nlohmann::json& config
+    );
+    
+    /**
+     * @brief Get list of supported provider types
+     * @return Vector of provider names
+     */
+    static std::vector<std::string> get_supported_providers();
+    
+    /**
+     * @brief Validate provider configuration
+     * @param provider_name Provider type
+     * @param config Configuration to validate
+     * @return true if valid configuration
+     */
+    static bool validate_config(const std::string& provider_name, const nlohmann::json& config);
+};
+
+/**
+ * @brief Configuration parser for JSON format (simplified)
+ */
+class ConfigParser {
+public:
+    /**
+     * @brief Generate default configuration
+     * @return Default configuration JSON
+     */
+    static nlohmann::json generate_default_config();
+    
+    /**
+     * @brief Parse providers from configuration
+     * @param config Full configuration
+     * @return Vector of provider configurations
+     */
+    static std::vector<aimux::core::ProviderConfig> parse_providers(const nlohmann::json& config);
+    
+    /**
+     * @brief Validate parsed configuration
+     */
+    static bool validate_config_structure(const nlohmann::json& config);
+    
+    /**
+     * @brief Parse configuration from file
+     */
+    static nlohmann::json parse_config(const std::string& config_file);
+    
+    /**
+     * @brief Parse a string value from config
+     */
+    static nlohmann::json parse_toon_value(const std::string& value);
+};
+    static nlohmann::json parse_toon_value(const std::string& value);
+};
+
+} // namespace providers  
+} // namespace aimux
