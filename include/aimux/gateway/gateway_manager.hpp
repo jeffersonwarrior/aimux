@@ -13,6 +13,11 @@
 #include "aimux/core/router.hpp"
 #include "aimux/gateway/provider_health.hpp"
 #include "aimux/gateway/routing_logic.hpp"
+#include "aimux/prettifier/prettifier_plugin.hpp"
+#include "aimux/prettifier/cerebras_formatter.hpp"
+#include "aimux/prettifier/openai_formatter.hpp"
+#include "aimux/prettifier/anthropic_formatter.hpp"
+#include "aimux/prettifier/synthetic_formatter.hpp"
 
 namespace aimux {
 namespace gateway {
@@ -213,6 +218,10 @@ private:
     // Routing logic
     std::unique_ptr<RoutingLogic> routing_logic_;
 
+    // Prettifier support (v2.1)
+    std::unordered_map<std::string, std::shared_ptr<prettifier::PrettifierPlugin>> prettifier_formatters_;
+    std::atomic<bool> prettifier_enabled_{true};
+
     // State management
     std::atomic<bool> initialized_{false};
     std::atomic<bool> debug_mode_{false};
@@ -241,6 +250,12 @@ private:
     bool validate_api_key(const std::string& api_key) const;
     bool validate_base_url(const std::string& url) const;
     bool validate_capability_flags(int flags) const;
+
+    // Prettifier helpers
+    void initialize_prettifier_formatters();
+    prettifier::PrettifierPlugin* get_prettifier_for_provider(const std::string& provider_name);
+    core::Response apply_prettifier(const core::Response& response, const std::string& provider_name,
+                                    const core::Request& request);
 
     // Error handling
     core::Response create_error_response(const std::string& error_code,
