@@ -1,8 +1,14 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AimuxApp = void 0;
 const path_1 = require("path");
 const os_1 = require("os");
+const http_1 = __importDefault(require("http"));
+const https_1 = __importDefault(require("https"));
+const url_1 = require("url");
 const config_1 = require("../config");
 const models_1 = require("../models");
 const ui_1 = require("../ui");
@@ -328,11 +334,9 @@ class AimuxApp {
             console.log('[AIMUX] Z.AI: Using direct connection with model transformation');
             // Set up a simple proxy server inline to handle model transformation
             // This is a minimal version of the interceptor functionality
-            const http = require('http');
-            const url = require('url');
             const proxyPort = 8124; // Use different port to avoid conflicts
             setTimeout(() => {
-                const server = http.createServer((req, res) => {
+                const server = http_1.default.createServer((req, res) => {
                     let body = '';
                     req.on('data', (chunk) => (body += chunk));
                     req.on('end', () => {
@@ -349,8 +353,8 @@ class AimuxApp {
                                 targetPath = '/api' + targetPath;
                             }
                             const targetUrl = `https://api.z.ai${targetPath}`;
-                            const parsedUrl = new url.URL(targetUrl);
-                            const proxyReq = require('https').request({
+                            const parsedUrl = new url_1.URL(targetUrl);
+                            const proxyReq = https_1.default.request({
                                 hostname: 'api.z.ai',
                                 port: 443,
                                 path: parsedUrl.pathname + parsedUrl.search,

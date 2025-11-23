@@ -34,58 +34,58 @@ export declare class AimuxApp {
         selectedThinkingModel: string;
         firstRunCompleted: boolean;
         providers?: Record<string, {
+            name: string;
             timeout: number;
             apiKey: string;
-            name: string;
-            maxRetries: number;
             enabled: boolean;
             priority: number;
+            maxRetries: number;
+            models?: string[] | undefined;
             baseUrl?: string | undefined;
-            capabilities?: ("thinking" | "vision" | "tools")[] | undefined;
             anthropicBaseUrl?: string | undefined;
             modelsApiUrl?: string | undefined;
-            models?: string[] | undefined;
+            capabilities?: ("thinking" | "vision" | "tools")[] | undefined;
         }> | undefined;
         multiProvider?: {
             providers: {
                 'minimax-m2'?: {
+                    name: string;
                     timeout: number;
                     apiKey: string;
-                    name: string;
-                    maxRetries: number;
                     enabled: boolean;
                     priority: number;
+                    maxRetries: number;
+                    models?: string[] | undefined;
                     baseUrl?: string | undefined;
-                    capabilities?: ("thinking" | "vision" | "tools")[] | undefined;
                     anthropicBaseUrl?: string | undefined;
                     modelsApiUrl?: string | undefined;
-                    models?: string[] | undefined;
+                    capabilities?: ("thinking" | "vision" | "tools")[] | undefined;
                 } | undefined;
                 'z-ai'?: {
+                    name: string;
                     timeout: number;
                     apiKey: string;
-                    name: string;
-                    maxRetries: number;
                     enabled: boolean;
                     priority: number;
+                    maxRetries: number;
+                    models?: string[] | undefined;
                     baseUrl?: string | undefined;
-                    capabilities?: ("thinking" | "vision" | "tools")[] | undefined;
                     anthropicBaseUrl?: string | undefined;
                     modelsApiUrl?: string | undefined;
-                    models?: string[] | undefined;
+                    capabilities?: ("thinking" | "vision" | "tools")[] | undefined;
                 } | undefined;
                 'synthetic-new'?: {
+                    name: string;
                     timeout: number;
                     apiKey: string;
-                    name: string;
-                    maxRetries: number;
                     enabled: boolean;
                     priority: number;
+                    maxRetries: number;
+                    models?: string[] | undefined;
                     baseUrl?: string | undefined;
-                    capabilities?: ("thinking" | "vision" | "tools")[] | undefined;
                     anthropicBaseUrl?: string | undefined;
                     modelsApiUrl?: string | undefined;
-                    models?: string[] | undefined;
+                    capabilities?: ("thinking" | "vision" | "tools")[] | undefined;
                 } | undefined;
             };
             routing: {
@@ -98,11 +98,11 @@ export declare class AimuxApp {
                 toolsProvider?: string | undefined;
             };
             fallback: {
-                retryDelay: number;
                 enabled: boolean;
-                healthCheckInterval: number;
+                retryDelay: number;
                 maxFailures: number;
                 healthCheck: boolean;
+                healthCheckInterval: number;
             };
         } | undefined;
         routingRules?: Record<string, string> | undefined;

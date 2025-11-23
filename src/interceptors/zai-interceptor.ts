@@ -8,11 +8,9 @@
  * - Z.AI expects: GLM-4.6
  */
 
-const http = require('http');
-const https = require('https');
-const url = require('url');
-
-import { IncomingMessage, ServerResponse } from 'http';
+import http, { IncomingMessage, ServerResponse } from 'http';
+import https from 'https';
+import * as url from 'url';
 
 interface ZAIInterceptorOptions {
   port?: number;
@@ -176,4 +174,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = ZAIInterceptor;
+export default ZAIInterceptor;

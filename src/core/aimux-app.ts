@@ -1,5 +1,8 @@
 import { join } from 'path';
 import { homedir } from 'os';
+import http from 'http';
+import https from 'https';
+import { URL } from 'url';
 import { ConfigManager } from '../config';
 import { ModelManager } from '../models';
 import { UserInterface } from '../ui';
@@ -440,9 +443,6 @@ export class AimuxApp {
 
       // Set up a simple proxy server inline to handle model transformation
       // This is a minimal version of the interceptor functionality
-      const http = require('http');
-      const url = require('url');
-
       const proxyPort = 8124; // Use different port to avoid conflicts
 
       setTimeout(() => {
@@ -465,9 +465,9 @@ export class AimuxApp {
               }
 
               const targetUrl = `https://api.z.ai${targetPath}`;
-              const parsedUrl = new url.URL(targetUrl);
+              const parsedUrl = new URL(targetUrl);
 
-              const proxyReq = require('https').request(
+              const proxyReq = https.request(
                 {
                   hostname: 'api.z.ai',
                   port: 443,
