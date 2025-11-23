@@ -1,0 +1,88 @@
+@startuml Aimux Request Data Flow
+
+title Aimux v2.0.0 - Request Processing Data Flow
+caption End-to-end request flow with correlation ID tracking
+scale 1.0
+skinparam backgroundColor #F8F9FA
+skinparam sequenceMessageAlign center
+
+' Actors
+actor "Client" as Client
+participant "Web UI" as WebUI
+participant "Gateway" as Gateway
+participant "Router" as Router
+participant "Bridge Factory" as Factory
+participant "Provider Bridge" as Bridge
+participant "AI Provider" as Provider
+database "Log Storage" as Logs
+database "Metrics" as Metrics
+
+' Request flow
+Client -> WebUI: Send Request (HTTP/WebSocket)
+activate WebUI
+
+WebUI ->> Gateway: Generate Correlation ID
+WebUI ->> Gateway: Transform API Request
+activate Gateway
+
+Gateway ->> Router: Route Request with Correlation ID
+activate Router
+
+Router ->> Router: Select Provider (Load Balancing)
+Router ->> Failover: Check Health
+Router ->> Factory: Create Bridge
+activate Factory
+
+Factory ->> Bridge: Get Provider Bridge
+activate Bridge
+
+Bridge ->> Provider: Send API Request
+activate Provider
+
+Provider --> Bridge: AI Response
+deactivate Provider
+
+Bridge --> Router: Response + Rate Limits
+deactivate Bridge
+
+Router --> Gateway: Processed Response
+deactivate Factory
+
+Gateway ->> Logging: Structured Log Entry
+Gateway ->> Metrics: Performance Metrics
+
+Gateway --> WebUI: Response with Context
+deactivate Router
+
+WebUI --> Client: HTTP Response
+deactivate Gateway
+
+' Error handling flow
+alt Provider Error/Rate Limit
+    Provider --> Bridge: Error Response
+    Bridge --> Router: Error Propagation
+    Router ->> Failover: Select Alternative Provider
+    Router ->> Factory: Create Alternative Bridge
+    Factory ->> Bridge: Alternative Provider Bridge
+    Bridge ->> Provider: Retry Request
+end
+
+' Logging throughout the lifecycle
+note over Client, Provider
+    All entries include correlation ID
+    for end-to-end tracing
+end note
+
+Gateway ->> Logs: Request Start (correlation_id, endpoint)
+Factory ->> Logs: Bridge Created (correlation_id, provider)
+Bridge ->> Logs: API Call (correlation_id, provider, duration)
+Router ->> Logs: Routing Decision (correlation_id, selection)
+Gateway ->> Logs: Response Sent (correlation_id, status)
+
+' Data collection
+Router ->> Metrics: Request Duration
+Bridge ->> Metrics: Provider Latency
+Provider ->> Metrics: Token Usage
+Gateway ->> Metrics: Error Rates
+
+@enduml

@@ -1,0 +1,345 @@
+# Aimux v2.0 Build System Documentation
+
+BUILD_ARCHITECTURE
+    Build_System      = "CMake 3.20+"
+    Language_Standard = "C++17"
+    Package_Manager   = "vcpkg for dependencies"
+    Build_Types       = "Debug/Release/RelWithDebInfo/MinSizeRel"
+    Cross_Platform    = "Linux, macOS, Windows"
+
+BUILD_DEPENDENCIES
+    Core_Dependencies
+        crow            = "HTTP server framework"
+        nlohmann_json   = "JSON processing library"
+        openssl         = "Cryptographic operations"
+        pthread         = "Multi-threading (POSIX)"
+
+    Development_Dependencies
+        gtest           = "Unit testing framework"
+        benchmark       = "Performance benchmarking"
+        clang-tidy      = "Static analysis"
+        cppcheck        = "Code analysis"
+
+    System_Dependencies
+        Linux
+            libpthread   = "POSIX threads"
+            libssl       = "OpenSSL library"
+            libcrypto    = "OpenSSL crypto library"
+            zlib         = "Compression library"
+
+        macOS
+            Security      = "macOS Security framework"
+            Foundation    = "Foundation framework"
+            libpthread    = "POSIX threads (compatibility)"
+
+        Windows
+            pthreads-win32 = "POSIX threads for Windows"
+            OpenSSL       = "OpenSSL for Windows"
+            WinHttp       = "HTTP client (Windows native)
+
+CMAKE_CONFIGURATION
+    CMakeLists.txt_Root
+        cmake_minimum_required = "3.20"
+        project_name    = "aimux"
+        cpp_standard    = "C++17"
+        build_types     = ["Debug", "Release", "RelWithDebInfo"]
+
+        vcpkg_integration
+            CMAKE_TOOLCHAIN_FILE = "vcpkg/scripts/buildsystems/vcpkg.cmake"
+            VCPKG_TARGET_TRIPLET = "x64-linux (or appropriate)"
+
+        Compiler_Settings
+            CMAKE_CXX_STANDARD = "17"
+            CMAKE_CXX_STANDARD_REQUIRED = "ON"
+            CMAKE_CXX_EXTENSIONS = "OFF"
+            compiler_flags   = ["-Wall", "-Wextra", "-Werror"]
+
+    Module_CMakeLists
+        include_directories
+            aimux/include
+            vcpkg_installed/include
+
+        source_files
+            GLOB_RECURSE    = "src/**/*.cpp"
+            EXCLUDE         = "src/**/*_test.cpp"
+
+        library_linking
+            PRIVATE          = [crow::crow, nlohmann_json::nlohmann_json, OpenSSL::SSL, OpenSSL::Crypto]
+            PUBLIC           = pthreads
+
+BUILD_TARGETS
+    aimux_executable
+        type            = "EXECUTABLE"
+        sources         = ["src/main.cpp", "src/**/*.cpp"]
+        includes        = ["include/**/*.hpp", "include/**/*.h"]
+        libraries       = "OpenSSL, nlohmann_json, crow, pthreads"
+        output_name     = "aimux"
+        install_path    = "bin/"
+
+    aimux_library
+        type            = "STATIC_LIBRARY"
+        sources         = ["src/core/*.cpp", "src/gateway/*.cpp", "src/security/*.cpp", "src/network/*.cpp"]
+        includes        = ["include/**/*.hpp"]
+        libraries       = "OpenSSL, nlohmann_json, crow, pthreads"
+        output_name     = "libaimux"
+        install_path    = "lib/"
+
+    aimux_tests
+        type            = "EXECUTABLE"
+        sources         = ["src/**/*_test.cpp", "tests/**/*.cpp"]
+        includes        = ["include/**/*.hpp", "vcpkg_installed/include"]
+        libraries       = "gtest, gtest_main, aimux_library"
+        output_name     = "aimux_tests"
+        install_path    = "test/"
+
+BUILD_SCRIPTS
+    build.sh (Linux/macOS)
+        #!/bin/bash
+        BUILD_TYPE=${1:-Release}
+        BUILD_DIR="build-${BUILD_TYPE,,}"
+
+        mkdir -p ${BUILD_DIR}
+        cd ${BUILD_DIR}
+
+        cmake .. \
+            -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
+            -DCMAKE_TOOLCHAIN_FILE=../vcpkg/scripts/buildsystems/vcpkg.cmake \
+            -DVCPKG_TARGET_TRIPLET=${VCPKG_TARGET_TRIPLET:-x64-linux}
+
+        make -j$(nproc)
+        ctest --output-on-failure
+
+    build.bat (Windows)
+        @echo off
+        set BUILD_TYPE=%1
+        if "%BUILD_TYPE%"=="" set BUILD_TYPE=Release
+        set BUILD_DIR=build-%BUILD_TYPE%
+
+        if not exist %BUILD_DIR% mkdir %BUILD_DIR%
+        cd %BUILD_DIR%
+
+        cmake .. ^
+            -DCMAKE_BUILD_TYPE=%BUILD_TYPE% ^
+            -DCMAKE_TOOLCHAIN_FILE=../vcpkg/scripts/buildsystems/vcpkg.cmake ^
+            -DVCPKG_TARGET_TRIPLET=x64-windows
+
+        cmake --build . --config %BUILD_TYPE% --parallel
+        ctest --output-on-failure -C %BUILD_TYPE%
+
+VCPKG_SETUP
+    vcpkg_dependencies.txt
+        crow
+        nlohmann/json
+        openssl
+        gtest
+        benchmark
+
+    vcpkg_triplets
+        x64-linux       = "Linux x64"
+        x64-windows     = "Windows x64"
+        x64-osx         = "macOS x64"
+
+    vcpkg_integration
+        ./vcpkg install --triplet=x64-linux
+        ./vcpkg integrate install
+
+BUILD_TYPES_CONFIGURATIONS
+    Debug
+        compiler_flags  = ["-g", "-O0", "-DDEBUG"]
+        no_optimization = true
+        debug_symbols   = full
+        asserts_enabled = true
+        security_checks = full
+
+    Release
+        compiler_flags  = ["-O3", "-DNDEBUG", "-flto"]
+        optimization    = "O3 with LTO"
+        debug_symbols   = minimal
+        asserts_enabled = false
+        strip_executable = true
+
+    RelWithDebInfo
+        compiler_flags  = ["-O2", "-g", "-DNDEBUG"]
+        optimization    = "O2 balanced"
+        debug_symbols   = full
+        asserts_enabled = false
+        profiling_data  = included
+
+    MinSizeRel
+        compiler_flags  = ["-Os", "-DNDEBUG", "-ffunction-sections", "-fdata-sections"]
+        optimization    = "Size focused"
+        debug_symbols   = minimal
+        link_time_optimization = enabled
+        strip_unneeded = true
+
+COMPILATION_FLAGS
+    Warning_Flags
+        -Wall           = "Enable most warnings"
+        -Wextra         = "Enable extra warnings"
+        -Werror         = "Treat warnings as errors"
+        -Wpedantic      = "Enable pedantic warnings"
+        -Wconversion    = "Warn on implicit conversions"
+        -Wsign-conversion = "Warn on sign changes"
+
+    Optimization_Flags
+        -O0             = "No optimization (Debug)"
+        -O2             = "Balanced optimization (Release)"
+        -O3             = "Maximum optimization (Performance)"
+        -Os             = "Size optimization"
+        -flto           = "Link-time optimization"
+
+    Security_Flags
+        -fstack-protector-strong = "Stack protection"
+        -D_FORTIFY_SOURCE=2 = "Runtime buffer overflow detection"
+        -fPIE           = "Position-independent executable"
+        -Wformat -Wformat-security = "Format string protection"
+
+INSTALLATION
+    Install_Targets
+        aimux_executable
+            destination    = "bin/"
+            permissions    = "0755"
+
+        aimux_library
+            destination    = "lib/"
+            permissions    = "0644"
+
+        Configuration_Files
+            destination    = "etc/aimux/"
+            templates      = ["config.json.template", "production-config.json.template"]
+
+        System_Service_Files
+            destination    = "lib/systemd/system/"
+            files          = ["aimux.service"]
+            post_install   = "systemctl daemon-reload; systemctl enable aimux"
+
+    Package_Configuration
+        CPack_Settings
+            generators     = ["DEB", "RPM", "TGZ"]
+            package_name   = "aimux"
+            version        = "2.0.0"
+            maintainer     = "Aimux Team"
+            description    = "Multi-provider AI service router"
+
+CONTINUOUS_INTEGRATION
+    GitHub_Actions
+        build-matrix
+            os             = ["ubuntu-latest", "macOS-latest", "windows-latest"]
+            build_type     = ["Debug", "Release"]
+            compiler       = ["gcc", "clang", "msvc"]
+
+        build_steps
+            checkout_code  = "actions/checkout@v3"
+            setup_vcpkg    = "vcpkg dependency setup"
+            configure_cmake = "cmake configuration"
+            build_project  = "cmake build"
+            run_tests      = "ctest execution"
+            upload_artifacts = "build artifacts upload"
+
+        Quality_Checks
+            static_analysis = "clang-tidy, cppcheck"
+            code_coverage  = "gcov/lcov for Debug builds"
+            security_scan  = "CodeQL analysis"
+            dependency_scan = "Dependabot checks"
+
+TESTING_FRAMEWORK
+    Unit_Tests
+        framework        = "Google Test (gtest)"
+        test_suites     = ["core", "gateway", "security", "network", "cache"]
+        coverage_target = "80% code coverage"
+        test_data       = "fixtures/ directory"
+
+    Integration_Tests
+        provider_tests  = "Real provider connections"
+        api_tests       = "REST API functionality"
+        performance_tests = "Load and stress testing"
+        security_tests  = "Authentication and encryption"
+
+    Test_Commands
+        run_unit_tests
+            command       = "cd build && ctest --output-on-failure"
+            parallel      = true
+            timeout       = "300 seconds"
+
+        run_performance_tests
+            command       = "./build/aimux_tests --gtest_filter=Performance.*"
+            benchmark_output = "benchmark_results.json"
+
+        run_coverage
+            command       = "cd build && make coverage && lcov --gcov-tool gcov --capture --directory . --output-file coverage.info"
+            html_report  = "coverage_html/index.html"
+
+PERFORMANCE_TUNING
+    Build_Performance
+        parallel_jobs  = "$(nproc)" on Unix
+        parallel_jobs  = "${NUMBER_OF_PROCESSORS}" on Windows
+        incremental_builds = "Ninja generator option"
+        unity_builds   = "Single translation unit compilation"
+
+    Runtime_Performance
+        profile-guided_optimization = "PGO support"
+        link-time_optimization = "LTO enabled in Release"
+        vectorization   = "Auto-vectorization flags"
+        memory_optimization = "Stack size tuning"
+
+DEPLOYMENT_BUILD
+    Production_Builder
+        build_production.sh
+            environment   = "Production hardened"
+            optimizations = "Full optimization + security"
+            validation    = "Configuration and health checks"
+            packaging     = "System package creation"
+
+        Container_Build
+            Dockerfile
+                base_image  = "ubuntu:22.04"
+                build_stage = "Multi-stage build"
+                security_hardening = "Non-root user, minimal packages"
+                image_size   = "Optimized for production"
+
+        binary_distribution
+            static_linking = "Optionally build static binary"
+            dependency_inclusion = "Bundle vcpkg dependencies"
+            cross_compilation = "Multi-architecture builds"
+
+TROUBLESHOOTING
+    Common_Build_Issues
+        vcpkg_integration_failures
+            symptom       = "CMake cannot find packages"
+            solution       = "Verify VCPKG_ROOT and toolchain file"
+            debug_command  = "cmake --debug-output"
+
+        compiler_compatibility
+            symptom       = "Compiler not supported errors"
+            solution       = "Install GCC 9+/Clang 10+/MSVC 19.3+"
+            debug_command  = "cmake --system-information"
+
+        openssl_linking_errors
+            symptom       = "OpenSSL library linking failures"
+            solution       = "Install OpenSSL development packages"
+            debug_command  = "find_package(OpenSSL REQUIRED)"
+
+    Build_Diagnostics
+        verbose_build   = "make VERBOSE=1"
+        cmake_debug     = "cmake --debug-trycompile"
+        dependency_graph = "cmake --graphviz=deps.dot"
+        target_properties = "cmake --target aimux --show-progress"
+
+BUILD_VERSIONING
+    Version_Management
+        version.txt     = "Semantic version file"
+        git_describe    = "Git-based build info"
+        build_timestamp = "Build time inclusion"
+        ci_environment  = "CI/CD integration"
+
+        version_info.hpp
+            auto_generation = "CMake generated header"
+            version_macros = "AIMUX_VERSION, AIMUX_BUILD_INFO"
+            string_constants = "Version string generation"
+
+    Release_Process
+        version_bump    = "Update version.txt"
+        tag_creation    = "Git tag with version"
+        changelog_update = "CHANGELOG.md updates"
+        release_build   = "Full build verification"
+        artifact_upload = "GitHub releases integration"

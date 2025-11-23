@@ -1,0 +1,387 @@
+# Aimux v2.0 API Documentation
+
+GATEWAY_ARCHITECTURE
+    Dual_API_Support = "Anthropic + OpenAI formats"
+    Port_Configuration
+        anthropic_port = 8080
+        openai_port    = 8081
+    Protocol         = "HTTP/1.1 with TLS 1.3"
+    Content_Type     = "application/json"
+    Character_Encoding = "UTF-8"
+
+ANTHROPIC_COMPATIBLE_API
+    Base_URL         = "http://localhost:8080"
+    Version          = "2023-06-01"
+    Authentication   = "Optional for internal use"
+    Rate_Limiting    = "Configurable per client"
+
+    ENDPOINTS
+        POST /v1/messages
+            description     = "Create message completion"
+            request_body    = "Anthropic message format"
+            response_body   = "Anthropic response format"
+
+        GET /v1/models
+            description     = "List available models"
+            response_body   = "Models array"
+
+        GET /v1/messages/{message_id}
+            description     = "Retrieve message (if supported)"
+
+        POST /v1/messages/batches
+            description     = "Batch message processing"
+
+    REQUEST_FORMAT
+        Messages_Request
+            model           = "string (required)"
+            max_tokens      = "integer (optional)"
+            messages        = "array (required)"
+                role        = "string (user/assistant/system)"
+                content     = "string/array"
+            temperature     = "float (0.0-1.0)"
+            top_p           = "float (0.0-1.0)"
+            stop_sequences  = "array (optional)"
+            stream          = "boolean (future feature)"
+            metadata        = "object (optional)"
+
+    RESPONSE_FORMAT
+        Messages_Response
+            id              = "string"
+            type            = "message"
+            role            = "assistant"
+            content         = "array"
+                type        = "text"
+                text        = "string"
+            model           = "string"
+            stop_reason     = "string (end_turn/max_tokens/stop_sequence/tool_use)"
+            stop_sequence   = "string/null"
+            usage           = "object"
+                input_tokens = "integer"
+                output_tokens = "integer"
+
+    ERRORS
+        400_Bad_Request
+            type            = "error"
+            error           = "object"
+                type        = "invalid_request_error"
+                message     = "string"
+
+        401_Unauthorized
+            type            = "error"
+            error           = "object"
+                type        = "authentication_error"
+                message     = "string"
+
+        429_Rate_Limit
+            type            = "error"
+            error           = "object"
+                type        = "rate_limit_error"
+                message     = "string"
+
+        500_Server_Error
+            type            = "error"
+            error           = "object"
+                type        = "api_error"
+                message     = "string"
+
+OPENAI_COMPATIBLE_API
+    Base_URL         = "http://localhost:8081"
+    Version          = "v1"
+    Authentication   = "Bearer token (if enabled)"
+    Rate_Limiting    = "Configurable per client"
+
+    ENDPOINTS
+        POST /v1/chat/completions
+            description     = "Create chat completion"
+            request_body    = "OpenAI chat format"
+            response_body   = "OpenAI response format"
+
+        GET /v1/models
+            description     = "List available models"
+            response_body   = "Models array"
+
+        POST /v1/completions
+            description     = "Text completion (legacy)"
+
+        POST /v1/embeddings
+            description     = "Create embeddings (if supported)"
+
+    REQUEST_FORMAT
+        Chat_Completion_Request
+            model           = "string (required)"
+            messages        = "array (required)"
+                role        = "string (user/assistant/system)"
+                content     = "string"
+            max_tokens      = "integer (optional)"
+            temperature     = "float (0.0-2.0)"
+            top_p           = "float (0.0-1.0)"
+            n               = "integer (choices count)"
+            stream          = "boolean (future feature)"
+            stop            = "string/array"
+            presence_penalty = "float (-2.0-2.0)"
+            frequency_penalty = "float (-2.0-2.0)"
+            user            = "string (optional)"
+
+    RESPONSE_FORMAT
+        Chat_Completion_Response
+            id              = "string"
+            object          = "chat.completion"
+            created         = "timestamp"
+            model           = "string"
+            choices         = "array"
+                index       = "integer"
+                message     = "object"
+                    role    = "assistant"
+                    content = "string"
+                finish_reason = "string"
+            usage           = "object"
+                prompt_tokens = "integer"
+                completion_tokens = "integer"
+                total_tokens = "integer"
+
+    MODELS_RESPONSE
+        object          = "list"
+        data            = "array"
+        model objects
+            id              = "string"
+            object          = "model"
+            created         = "timestamp"
+            owned_by        = "string"
+
+FORMAT_TRANSFORMATION
+    Anthropic_to_OpenAI
+        messages_array  = "Direct mapping"
+        system_prompt   = "Convert to first message with role='system'"
+        max_tokens      = "Direct mapping"
+        temperature     = "Direct mapping (0.0-1.0 -> 0.0-2.0 scaling)"
+        top_p           = "Direct mapping"
+        stop_sequences  = "stop parameter"
+
+    OpenAI_to_Anthropic
+        messages_array  = "Direct mapping"
+        system_role     = "Extract to system prompt"
+        max_tokens      = "Direct mapping"
+        temperature     = "Direct mapping (0.0-2.0 -> 0.0-1.0 scaling)"
+        top_p           = "Direct mapping"
+        stop            = "stop_sequences"
+
+    Response_Transformation
+        content_text    = "Direct mapping"
+        usage_tokens    = "Direct mapping"
+        finish_reason   = "Map between formats"
+        model           = "Original model name preserved"
+
+ADMIN_API_ENDPOINTS
+    Health_Checks
+        GET /health
+            description     = "Basic health check"
+            response        = {"status": "healthy", "timestamp": "ISO8601"}
+
+        GET /health/detailed
+            description     = "Detailed health with provider status"
+            response        = {"status": "healthy", "providers": {...}, "timestamp": "ISO8601"}
+
+    Metrics_And_Monitoring
+        GET /metrics
+            description     = "Current metrics"
+            response        = {"total_requests": 0, "success_rate": 0.0, "avg_response_time_ms": 0}
+
+        GET /metrics/history
+            description     = "Historical metrics data"
+            parameters      = ["start_time", "end_time", "granularity"]
+            response        = {"metrics": [...], "interval": "1m"}
+
+        GET /alerts
+            description     = "Active alerts"
+            response        = {"alerts": [{"type": "...", "severity": "...", "message": "..."}]}
+
+    Configuration
+        GET /config
+            description     = "Current configuration (sanitized)"
+            response        = {"providers": {...}, "load_balancing": {...}}
+
+        POST /config/reload
+            description     = "Reload configuration"
+            response        = {"success": true, "timestamp": "ISO8601"}
+
+    Provider_Management
+        GET /providers
+            description     = "List providers and status"
+            response        = {"providers": [{"name": "...", "status": "...", "metrics": {...}}]}
+
+        POST /providers/{provider}/test
+            description     = "Test provider connectivity"
+            response        = {"success": true, "response_time_ms": 123, "message": "..."}
+
+        POST /providers/{provider}/enable
+        POST /providers/{provider}/disable
+            description     = "Enable/disable provider"
+            response        = {"success": true, "status": "enabled|disabled"}
+
+WEBSOCKET_API
+    Real_Time_Metrics
+        ws://localhost:8080/ws/metrics
+            purpose         = "Live metrics streaming"
+            message_types   = ["metrics_update", "alert", "provider_status"]
+            frequency       = "Every 5 seconds"
+
+    Request_Tracking
+        ws://localhost:8080/ws/requests
+            purpose         = "Live request tracking"
+            message_types   = ["request_start", "request_complete", "request_error"]
+            data            = {"request_id": "...", "provider": "...", "status": "..."}
+
+CONFIGURATION_API
+    Provider_Config
+        POST /api/v1/providers
+            description     = "Add new provider"
+            request_body    = "Provider configuration object"
+            response        = {"success": true, "provider_id": "..."}
+
+        PUT /api/v1/providers/{provider_id}
+            description     = "Update provider configuration"
+            request_body    = "Updated configuration"
+            response        = {"success": true, "updated_fields": [...]}
+
+        DELETE /api/v1/providers/{provider_id}
+            description     = "Remove provider"
+            response        = {"success": true, "message": "Provider removed"}
+
+    Load_Balancing_Config
+        GET /api/v1/load-balancing/strategy
+            description     = "Get current strategy"
+            response        = {"strategy": "ROUND_ROBIN", "config": {...}}
+
+        PUT /api/v1/load-balancing/strategy
+            description     = "Update load balancing strategy"
+            request_body    = {"strategy": "ADAPTIVE", "parameters": {...}}
+            response        = {"success": true, "strategy": "ADAPTIVE"}
+
+ERROR_RESPONSES
+    Standard_Error_Format
+        error
+            code            = "string (error_code)"
+            message         = "string (human_readable)"
+            type            = "string (error_type)"
+            param           = "string (optional, parameter name)"
+            details         = "object (optional, additional details)"
+
+    Error_Codes
+        invalid_request  = "400 - Request validation failed"
+        authentication   = "401 - Authentication required/invalid"
+        permission_denied = "403 - Insufficient permissions"
+        not_found        = "404 - Resource not found"
+        rate_limit       = "429 - Rate limit exceeded"
+        internal_error   = "500 - Internal server error"
+        service_unavailable = "503 - Service temporarily unavailable"
+        provider_error   = "502 - Provider communication error"
+
+RATE_LIMITING
+    Client_Rate_Limits
+        requests_per_minute = "Configurable (default: 100)"
+        burst_size       = "Configurable (default: 10)"
+        penalty_duration = "Configurable (default: 1 hour)"
+
+    Rate_Limit_Headers
+        X-RateLimit-Limit = "Requests per minute"
+        X-RateLimit-Remaining = "Remaining requests"
+        X-RateLimit-Reset = "Reset timestamp"
+        Retry-After     = "Seconds until retry allowed"
+
+    Rate_Limit_Response
+        error
+            code            = "rate_limit_exceeded"
+            message         = "Rate limit exceeded"
+            retry_after     = "seconds"
+            limit_requests  = "limit"
+            limit_window    = "window duration"
+
+SECURITY_HEADERS
+    Standard_Security_Headers
+        X-Content-Type-Options = "nosniff"
+        X-Frame-Options   = "DENY"
+        X-XSS-Protection   = "1; mode=block"
+        Strict-Transport-Security = "max-age=31536000; includeSubDomains"
+        Referrer-Policy    = "strict-origin-when-cross-origin"
+
+    CORS_Headers
+        Access-Control-Allow-Origin = "Configurable"
+        Access-Control-Allow-Methods = "GET, POST, PUT, DELETE, OPTIONS"
+        Access-Control-Allow-Headers = "Content-Type, Authorization"
+        Access-Control-Max-Age = "86400"
+
+API_VERSIONING
+    Version_Strategy = "URL path versioning"
+    Current_Version  = "v1"
+    Supported_Versions = ["v1"]
+    Deprecation_Policy = "6 months notice"
+    Backward_Compatibility = "Maintained within major version"
+
+    Headers
+        API-Version      = "Client preference"
+        X-API-Version    = "Actual version used"
+        X-Deprecated-API = "Warning header for deprecated endpoints"
+
+REQUEST_LIMITS
+    Size_Limits
+        max_request_size = "10MB"
+        max_header_size  = "8KB"
+        max_url_length   = "2048 characters"
+
+    Parameter_Limits
+        max_messages     = "100 per request"
+        max_tokens       = "100,000 per request"
+        max_response_tokens = "100,000"
+        max_temperature  = "2.0"
+        max_top_p        = "1.0"
+        max_n            = "10 choices"
+
+RESPONSE_FORMATS
+    Success_Response
+        success          = true
+        data            = "response_specific"
+        timestamp       = "ISO8601 timestamp"
+        request_id      = "unique_request_identifier"
+
+    Error_Response
+        success         = false
+        error           = "error_object"
+        timestamp       = "ISO8601 timestamp"
+        request_id      = "unique_request_identifier"
+
+    List_Response
+        success         = true
+        data            = "array"
+        total           = "total_count"
+        page            = "page_number"
+        per_page        = "items_per_page"
+        has_more        = "boolean"
+
+STREAMING_API (Future)
+    Server-Sent_Events
+        Content-Type    = "text/event-stream"
+        Cache-Control   = "no-cache"
+        Connection      = "keep-alive"
+
+    Event_Format
+        event: message
+        data: {"type": "...", "content": "..."}
+
+        event: done
+        data: {"type": "done", "usage": {...}}
+
+        event: error
+        data: {"type": "error", "error": {...}}
+
+API_CLIENTS
+    Client_Libraries
+        python          = "pip install aimux-client"
+        javascript      = "npm install aimux-client"
+        rust            = "cargo add aimux-client"
+        go              = "go get github.com/aimux/client"
+
+    Client_Configuration
+        base_url        = "http://localhost:8080"
+        timeout         = "30 seconds"
+        retry_policy    = "Exponential backoff"
+        api_key         = "Optional for internal use"

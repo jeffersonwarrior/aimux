@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aimux2 Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="css/dashboard.css">
+    <link rel="stylesheet" href="css/components.css">
+</head>
+<body class="bg-gray-900 text-white">
+    <div id="app">
+        <!-- Header -->
+        <header class="bg-gray-800 shadow-lg">
+            <div class="max-w-7xl mx-auto px-4 py-4">
+                <div class="flex items-center justify-between">
+                    <h1 class="text-2xl font-bold text-blue-400">Aimux2 Dashboard</h1>
+                    <div class="flex items-center space-x-4">
+                        <span class="text-sm text-gray-400">Status:</span>
+                        <span id="connection-status" class="text-sm px-2 py-1 rounded bg-green-600">Connected</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="max-w-7xl mx-auto px-4 py-8">
+            <!-- Metrics Overview -->
+            <section class="mb-8">
+                <h2 class="text-xl font-semibold mb-4">System Overview</h2>
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div class="bg-gray-800 rounded-lg p-4">
+                        <div class="text-sm text-gray-400">Total Requests</div>
+                        <div id="total-requests" class="text-2xl font-bold text-blue-400">0</div>
+                    </div>
+                    <div class="bg-gray-800 rounded-lg p-4">
+                        <div class="text-sm text-gray-400">Avg Response Time</div>
+                        <div id="avg-response-time" class="text-2xl font-bold text-green-400">0ms</div>
+                    </div>
+                    <div class="bg-gray-800 rounded-lg p-4">
+                        <div class="text-sm text-gray-400">Success Rate</div>
+                        <div id="success-rate" class="text-2xl font-bold text-yellow-400">100%</div>
+                    </div>
+                    <div class="bg-gray-800 rounded-lg p-4">
+                        <div class="text-sm text-gray-400">Active Providers</div>
+                        <div id="active-providers" class="text-2xl font-bold text-purple-400">0</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Provider Status -->
+            <section class="mb-8">
+                <h2 class="text-xl font-semibold mb-4">Provider Status</h2>
+                <div id="provider-cards" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <!-- Provider cards will be inserted here -->
+                </div>
+            </section>
+
+            <!-- Performance Chart -->
+            <section class="mb-8">
+                <h2 class="text-xl font-semibold mb-4">Performance Metrics</h2>
+                <div class="bg-gray-800 rounded-lg p-4">
+                    <canvas id="performance-chart" width="400" height="200"></canvas>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Load components first -->
+    <div id="components-container"></div>
+
+    <!-- Component HTML includes -->
+    <script>
+        // Load component HTML
+        fetch('components/alerts-panel.html')
+            .then(response => response.text())
+            .then(html => {
+                document.getElementById('components-container').insertAdjacentHTML('beforeend', html);
+                return fetch('components/settings-panel.html');
+            })
+            .then(response => response.text())
+            .then(html => {
+                document.getElementById('components-container').insertAdjacentHTML('beforeend', html);
+            })
+            .catch(error => console.error('Failed to load components:', error));
+    </script>
+
+    <!-- Load JavaScript -->
+    <script src="js/dashboard.js"></script>
+    <script src="js/components.js"></script>
+</body>
+</html>

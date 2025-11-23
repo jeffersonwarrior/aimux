@@ -1,0 +1,314 @@
+# Aimux v2.0 Security Documentation
+
+SECURITY_ARCHITECTURE
+    Defense_In_Depth = "Multiple security layers"
+    Zero_Trust      = "Verify everything, trust nothing"
+    Principle_Of_Least_Privilege = "Minimum required access"
+    Secure_By_Default = "Security enabled by default"
+
+CRYPTOGRAPHIC_FOUNDATIONS
+    AES_256_GCM_Encryption
+        purpose          = "API key encryption at rest"
+        key_size         = "256 bits"
+        iv_size          = "96 bits (12 bytes)"
+        tag_size         = "128 bits (16 bytes)"
+        authentication   = "Built-in GCM authentication"
+
+    PBKDF2_Key_Derivation
+        purpose          = "Derive encryption keys from master key"
+        iterations       = "100,000"
+        hash_function    = "SHA-256"
+        salt_length      = "128 bits (16 bytes)"
+        derived_key_size = "256 bits (32 bytes)"
+
+    OpenSSL_Integration
+        version          = "OpenSSL 3.0+"
+        evp_api          = "High-level cryptographic interface"
+        secure_memory    = "Explicit memory clearing"
+        fips_mode        = "Configurable FIPS 140-2 compliance"
+
+API_KEY_MANAGEMENT
+    AdvancedCrypto_Class
+        header           = "include/aimux/security/advanced_crypto.hpp"
+        implementation    = "src/security/advanced_crypto.cpp"
+
+        DATA_STRUCTURES
+            EncryptedData
+                ciphertext      = "vector<uint8_t> (variable length)"
+                iv             = "vector<uint8_t> (12 bytes)"
+                tag            = "vector<uint8_t> (16 bytes)"
+                salt           = "vector<uint8_t> (16 bytes)"
+
+            KeyMetadata
+                key_id         = "string (UUID)"
+                created_at     = "system_clock time_point"
+                expires_at     = "system_clock time_point"
+                is_active      = "bool"
+                version        = "int"
+
+        METHODS
+            encrypt_api_key
+                parameters      = ["string api_key"]
+                return_type     = "EncryptedData"
+                throws          = "runtime_error on encryption failure"
+                security_notes  = "Random IV generated per encryption"
+
+            decrypt_api_key
+                parameters      = ["const EncryptedData& encrypted_data"]
+                return_type     = "string"
+                throws          = "runtime_error on auth failure"
+                security_notes  = "GCM tag verification prevents tampering"
+
+            rotate_master_key
+                parameters      = ["int grace_period_hours=24"]
+                return_type     = "void"
+                behavior        = "Gradual migration with grace period"
+                security_notes  = "Old keys remain valid for decryption"
+
+    Key_Rotation_System
+        automatic_rotation = "Configurable (default: 90 days)"
+        grace_period     = "24 hours for data migration"
+        key_history      = "Maintain old keys for decryption"
+        secure_disposal   = "Memory zeroing after use"
+
+    Key_Storage
+        encrypted_at_rest = "AES-256-GCM"
+        memory_protection = "SecureString class"
+        access_logging   = "All key accesses logged"
+        isolation        = "Keys never leave secure context"
+
+SECURE_STRING_HANDLING
+    SecureString_Class
+        header           = "include/aimux/security/advanced_crypto.hpp"
+        purpose          = "Secure in-memory string handling"
+
+        FEATURES
+            secure_allocation = "Locked memory pages (mlock)"
+            automatic_zeroing = "Memory cleared in destructor"
+            length_obfuscation = "Prevent length-based attacks"
+            no_copy_semantics = "Deleted copy constructor"
+
+        OPERATIONS
+            get()           = "Secure string access (use with caution)"
+            empty()         = "Check if string is empty"
+            size()          = "Get string length"
+            explicit_conversion = "Prevent accidental exposure"
+
+TRANSPORT_SECURITY
+    TLS_1.3_Configuration
+        protocol_version = "TLS 1.3 only"
+        cipher_suites    = ["TLS_AES_256_GCM_SHA384", "TLS_AES_128_GCM_SHA256", "TLS_CHACHA20_POLY1305_SHA256"]
+        certificate_validation = "Strict verification"
+        ocsp_stapling    = "Enabled for real-time revocation"
+
+    SSL_Configuration
+        header           = "include/aimux/network/ssl_config.hpp"
+        implementation    = "src/network/ssl_config.cpp"
+
+        OPTIONS
+            verify_peer     = true
+            verify_host     = true
+            check_cert_revocation = true
+            strict_tls_check = true
+            custom_ca_bundle = "Configurable"
+
+    Certificate_Management
+        ca_verification  = "System CA bundle"
+        cert_pinning     = "Future feature: Pin provider certificates"
+        cert_rotation    = "Automatic CA updates"
+        revocation_check = "OCSP + CRL checking"
+
+AUTHENTICATION_AUTHORIZATION
+    API_Key_Authentication
+        methods          = ["x-api-key", "Authorization: Bearer", "Custom headers"]
+        validation       = "Format + Length + Character set"
+        rate_limiting    = "Per-key rate limiting"
+        audit_logging    = "All auth attempts logged"
+
+    Request_Authorization
+        rbac_model       = "Role-based access control"
+        permission_scope  = ["read", "write", "admin"]
+        resource_isolation = "Provider-specific permissions"
+        token_lifetime    = "Configurable (default: 1 hour)"
+
+    Security_Headers
+        standard_headers = [
+            "X-Content-Type-Options: nosniff",
+            "X-Frame-Options: DENY",
+            "X-XSS-Protection: 1; mode=block",
+            "Strict-Transport-Security: max-age=31536000",
+            "Content-Security-Policy: default-src 'self'"
+        ]
+        cors_policy      = "Configurable origin whitelist"
+        referrer_policy  = "strict-origin-when-cross-origin"
+
+INPUT_VALIDATION_SANITIZATION
+    Request_Validation
+        InputValidator_Class
+            header         = "include/aimux/validation/input_validator.hpp"
+            implementation = "src/validation/input_validator.cpp"
+
+        VALIDATION_RULES
+            json_schema    = "JSON Schema validation"
+            max_payload_size = "10MB limit"
+            required_fields = "Mandatory field checking"
+            data_types     = "Type enforcement"
+            value_ranges   = "Numeric bounds checking"
+            string_patterns = "Regex pattern matching"
+
+        Injection_Prevention
+            sql_injection   = "Not applicable (No SQL)"
+            xss_prevention  = "Content-type enforcement"
+            command_injection = "Parameter validation"
+            path_traversal  = "URL validation"
+
+    Sanitization_Engine
+        field_sanitization = "Remove sensitive data from logs"
+        parameter_cleaning = "Remove HTML/JavaScript"
+        encoding_safe     = "UTF-8 validation only"
+        output_encoding   = "JSON safe encoding"
+
+SECURE_CONFIGURATION
+    Encrypted_Config_Files
+        config_encryption = "AES-256-GCM"
+        key_derivation   = "PBKDF2 (config-specific salt)"
+        file_permissions = "0600 (owner read/write only)"
+        backup_encryption = "Same encryption as main config"
+
+    Config_Validator
+        header           = "include/aimux/config/startup_validator.hpp"
+        implementation    = "src/config/startup_validator.cpp"
+
+        VALIDATION_LEVELS
+            critical        = "Startup abort condition"
+            warning         = "Log warning but continue"
+            info            = "Informational message"
+
+        SECURITY_CHECKS
+            api_key_encryption = "Verify keys are encrypted"
+            tls_configuration = "Verify TLS settings"
+            provider_security = "Check provider security"
+            file_permissions  = "Validate file access rights"
+
+AUDIT_LOGGING
+    Security_Events
+        authentication_events = ["login_success", "login_failure", "invalid_key"]
+        authorization_events = ["access_denied", "privilege_escalation"]
+        configuration_events = ["config_change", "key_rotation", "security_setting_change"]
+        system_events        = ["startup", "shutdown", "error"]
+
+    Log_Format
+        timestamp          = "ISO8601 with timezone"
+        event_level        = ["CRITICAL", "WARNING", "INFO", "DEBUG"]
+        user_id           = "Authenticated user ID or IP"
+        action            = "Performed action"
+        resource          = "Affected resource"
+        result            = "Success/Failure"
+        details           = "Additional metadata"
+
+    Log_Security
+        tamper_protection = "Append-only log files"
+        log_integrity     = "Cryptographic hash verification"
+        log_rotation      = "Secure rotation with compression"
+        log_forwarding    = "SIEM integration support"
+
+THREAT_MITIGATION
+    Common_Vulnerabilities
+        buffer_overflows   = "C++ std::string/vector usage"
+        memory_leaks       = "RAII + smart pointers"
+        integer_overflow   = "Safe integer arithmetic"
+        race_conditions    = "Mutex protection + atomic operations"
+        timing_attacks     = "Constant-time crypto operations"
+
+    Network_Attacks
+        dos_protection     = "Connection limiting + rate limiting"
+        ddos_mitigation    = "Traffic shaping + provider failover"
+        replay_attacks     = "Request timestamps + nonces"
+        man_in_middle      = "TLS certificate verification"
+        dns_attacks        = "DNSSEC validation (future)"
+
+    Application_Attacks
+        credential_stuffing = "Rate limiting + lockout"
+        brute_force        = "Exponential backoff + CAPTCHA"
+        token_prediction   = "Cryptographically random IDs"
+        session_hijacking  = "Secure session management"
+        privilege_escalation = "Principle of least privilege"
+
+SECURITY_MONITORING
+    Intrusion_Detection
+        anomaly_detection  = "ML-based pattern analysis"
+        behavior_analysis  = "User/Request baselines"
+        threat_intelligence = "IP reputation checking"
+        signature_matching = "Known attack patterns"
+
+    Security_Metrics
+        failed_auth_rate   = "Authentication failure rate"
+        suspicious_requests = "Anomalous request patterns"
+        rate_limit_hits    = "Rate limiting triggers"
+        configuration_changes = "Security-relevant config changes"
+        system_integrity   = "File/directory monitoring"
+
+    Alert_System
+        alert_channels     = ["Log", "Web UI", "Email", "Webhook"]
+        alert_severity     = ["CRITICAL", "HIGH", "MEDIUM", "LOW"]
+        alert_correlation  = "Multi-event correlation"
+        false_positive_reduction = "Adaptive thresholds"
+
+COMPLIANCE_FEATURES
+    Data_Protection
+        data_at_rest      = "AES-256-GCM encryption"
+        data_in_transit  = "TLS 1.3 encryption"
+        data_minimization = "Only collect necessary data"
+        data_retention    = "Configurable retention policies"
+
+    Privacy_Features
+        pii_detection     = "Automatic PII identification"
+        data_anonymization = "Replace sensitive data with hashes"
+        consent_tracking  = "Consent logging (future)
+        gdpr_compliance   = "Right to erasure, data portability"
+
+    Audit_Trails
+        immutable_logs    = "Append-only with integrity checks"
+        chain_of_custody  = "Custodial tracking"
+        access_tracking   = "All data accesses logged"
+        change_tracking   = "Configuration changes tracked"
+
+HARDENING_GUIDELINES
+    Runtime_Hardening
+        aslr_enabled     = "Address space layout randomization"
+        stack_protection  = "Stack canaries enabled"
+        relro            = "Relocation read-only"
+        fortify_source    = "Compiler security hardening"
+        pie              = "Position-independent executables"
+
+    System_Hardening
+        file_permissions  = "Restrictive file permissions"
+        user_isolation    = "Dedicated aimux user"
+        service_isolation = "chroot/containerization"
+        network_isolation = "firewall rules + network namespaces"
+
+    Operational_Hardening
+        minimal_exposure  = "Least privilege access"
+        regular_updates   = "Security patch management"
+        vulnerability_scanning = "Regular dependency scanning"
+        penetration_testing = "Periodic security testing"
+
+INCIDENT_RESPONSE
+    Security_Incidents
+        classification    = ["Low", "Medium", "High", "Critical"]
+        triage_process   = "Immediate assessment protocol"
+        containment      = "Isolation and prevention"
+        eradication       = "Root cause removal"
+        recovery         = "Service restoration"
+
+    Forensics_Capability
+        log_analysis     = "Comprehensive log review"
+        network_forensics = "Traffic analysis"
+        memory_analysis  = "Process memory examination"
+        file_integrity   = "File hash verification"
+
+    Reporting
+        incident_timeline = "Detailed event chronology"
+        impact_assessment = "Damage evaluation"
+        remediation_plan = "Prevention strategy"
+        compliance_reporting = "Regulatory notification"

@@ -1,0 +1,179 @@
+# Aimux v2.0 Architecture Documentation
+
+SYSTEM_OVERVIEW
+    name                = "Aimux v2.0"
+    type                = "AI Service Router"
+    language            = "C++17"
+    primary_purpose      = "Multi-provider AI API routing with failover"
+    architecture_pattern = "Microservices with Gateway Pattern"
+    concurrency_model    = "Multi-threaded async I/O"
+
+CORE_DESIGN_PATTERNS
+    Bridge_Pattern
+        interface        = "aimux::core::Bridge"
+        purpose         = "Abstract provider-specific implementations"
+        implementations  = ["ClaudeBridge", "CerebrasBridge", "SyntheticBridge", "ZaiBridge"]
+
+    Factory_Pattern
+        interface        = "aimux::core::BridgeFactory"
+        purpose         = "Create provider instances with configuration"
+        singleton       = true
+
+    Gateway_Pattern
+        interface        = "aimux::gateway::UnifiedGateway"
+        purpose         = "Unified API endpoint with format transformation"
+        dual_support     = ["Anthropic", "OpenAI"]
+
+    Observer_Pattern
+        interface        = "Monitoring System"
+        purpose         = "Real-time metrics collection and alerts"
+
+    Strategy_Pattern
+        interface        = "aimux::core::LoadBalancer"
+        strategies       = ["ROUND_ROBIN", "LEAST_CONNECTIONS", "FASTEST_RESPONSE", "WEIGHTED_ROUND_ROBIN", "ADAPTIVE", "RANDOM"]
+
+LAYERED_ARCHITECTURE
+    Presentation_Layer
+        components      = ["WebUI Dashboard", "REST API Gateway", "CLI Interface"]
+        technologies    = ["Crow HTTP Server", "WebSocket", "JSON"]
+
+    Application_Layer
+        components      = ["UnifiedGateway", "RequestRouter", "LoadBalancer", "FailoverManager"]
+        responsibilities = ["Request routing", "Provider selection", "Format transformation", "Health monitoring"]
+
+    Core_Layer
+        components      = ["Bridge Abstraction", "Provider Implementations", "Cache System", "Security Module"]
+        responsibilities = ["Provider communication", "Response caching", "Encryption/Decryption"]
+
+    Infrastructure_Layer
+        components      = ["ConnectionPool", "HTTPClient", "SSL Configuration", "Logging System"]
+        responsibilities = ["Network I/O", "Resource management", "System integration"]
+
+DATA_FLOW
+    Request_Pipeline
+        1 -> "Client Request"
+        2 -> "UnifiedGateway (Port 8080/8081)"
+        3 -> "Format Detection & Transformation"
+        4 -> "LoadBalancer (Provider Selection)"
+        5 -> "FailoverManager (Health Check)"
+        6 -> "Bridge (Provider Communication)"
+        7 -> "Response Cache (Optional)"
+        8 -> "Format Transformation (Reverse)"
+        9 -> "Client Response"
+
+    Monitoring_Flow
+        1 -> "Request Interception"
+        2 -> "Metrics Collection"
+        3 -> "Performance Analysis"
+        4 -> "Alert Generation"
+        5 -> "Dashboard Updates"
+
+KEY_INTERFACES
+    aimux::core::Bridge
+        methods         = ["send_request", "is_healthy", "get_provider_name", "get_rate_limit_status"]
+        thread_safety    = true
+        performance_req  = "< 100ms health checks, < 500ms requests"
+
+    aimux::gateway::UnifiedGateway
+        methods         = ["start", "stop", "add_provider", "get_metrics"]
+        concurrent_support = true
+        dual_api_support = true
+
+    aimux::core::LoadBalancer
+        strategies       = 6
+        real_time_metrics = true
+        thread_safe     = true
+
+    aimux::security::AdvancedCrypto
+        encryption      = "AES-256-GCM"
+        key_derivation  = "PBKDF2 (100k iterations)"
+        key_rotation    = true
+
+THREADING_MODEL
+    Main_Thread
+        responsibility  = "System initialization and CLI handling"
+
+    Gateway_Threads
+        count           = 2 (Anthropic + OpenAI)
+        responsibility   = "HTTP request handling"
+
+    Connection_Pool_Thread
+        count           = 1
+        responsibility   = "Connection lifecycle management"
+
+    Monitoring_Thread
+        count           = 1
+        responsibility   = "Metrics collection and health checks"
+
+    Provider_Threads
+        count           = dynamic (per provider)
+        responsibility   = "Async HTTP communications"
+
+MEMORY_MANAGEMENT
+    Strategy         = "RAII + Smart Pointers"
+    Unique_Pointers   = ["Bridge instances", "HTTP clients"]
+    Shared_Pointers   = ["Cached responses", "Connection pool"]
+    Weak_Pointers     = ["Observer references"]
+    Auto_Cleanup      = ["Connection pool", "Cache entries", "Crypto contexts"]
+
+ERROR_HANDLING
+    Exception_Hierarchy
+        base            = "std::exception"
+        app_base        = "aimux::core::AimuxException"
+        specialized      = ["ProviderException", "ConfigurationException", "NetworkException"]
+
+    Failover_Strategy
+        detection       = "Health checks + response timeouts"
+        action          = "Switch to next available provider"
+        cooldown        = "5 minutes default"
+        circuit_breaker = "5 failures trigger 60s timeout"
+
+SECURITY_BOUNDARIES
+    External_Interface
+        authentication  = "API key validation"
+        encryption      = "TLS 1.3"
+        rate_limiting   = "Per provider configuration"
+
+    Internal_Data
+        api_key_storage = "AES-256-GCM encrypted"
+        cache_encryption = "Optional configurable"
+        logging_sanitization = "Sensitive data removal"
+
+    System_Integration
+        file_permissions = "0600 for config files"
+        user_isolation   = "Dedicated aimux user"
+        audit_logging    = "All access attempts"
+
+COMPONENT_DEPENDENCIES
+    External_Libraries
+        crow            = "HTTP server framework"
+        nlohmann        = "JSON processing"
+        openssl         = "Cryptographic operations"
+
+    System_Dependencies
+        pthread         = "Multi-threading"
+        ssl             = "TLS communications"
+        crypto          = "Random number generation"
+
+    Internal_Modules
+        core            = ["Bridge", "Router", "Failover", "LoadBalancer"]
+        gateway         = ["UnifiedGateway", "FormatDetector", "ApiTransformer"]
+        security        = ["AdvancedCrypto", "SecureString"]
+        network         = ["HttpClient", "ConnectionPool", "SSLConfig"]
+        cache           = ["ResponseCache", "CacheWarmer"]
+        monitoring      = ["Metrics", "Alerting", "Dashboard"]
+
+PERFORMANCE_TARGETS
+    Response_Time
+        p50_target      = "< 200ms"
+        p95_target      = "< 500ms"
+        p99_target      = "< 1000ms"
+
+    Throughput
+        requests_per_second = "1000+"
+        concurrent_connections = "10000+"
+
+    Availability
+        uptime_target   = "99.9%"
+        failover_time   = "< 5s"
+        recovery_time   = "< 60s"

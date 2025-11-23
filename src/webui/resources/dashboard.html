@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aimux Professional Dashboard - Real-time Monitoring</title>
+    <link rel="stylesheet" href="/dashboard.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.0/dist/chartjs-plugin-zoom.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/moment@2.29.4/moment.min.js"></script>
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Header -->
+        <header class="dashboard-header">
+            <div class="header-content">
+                <div class="logo">
+                    <h1>Aimux Professional Dashboard</h1>
+                    <p>Task 2.3 - Advanced Real-time WebSocket Streaming</p>
+                </div>
+                <div class="status-indicators">
+                    <div class="indicator" id="connection-status">
+                        <span class="status-dot"></span>
+                        <span class="status-text">WebSocket: Disconnected</span>
+                    </div>
+                    <div class="indicator" id="last-update">
+                        <span class="update-time">Never</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Control Panel -->
+        <section class="control-panel">
+            <div class="control-group">
+                <button id="toggle-streaming" class="btn btn-primary">Start Streaming</button>
+                <button id="request-update" class="btn btn-secondary">Manual Update</button>
+                <button id="clear-charts" class="btn btn-warning">Clear Charts</button>
+            </div>
+            <div class="control-group">
+                <label for="update-frequency">Update Frequency:</label>
+                <select id="update-frequency">
+                    <option value="1000">1 second</option>
+                    <option value="2000" selected>2 seconds</option>
+                    <option value="5000">5 seconds</option>
+                    <option value="10000">10 seconds</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label>
+                    <input type="checkbox" id="show-detailed" checked> Show Detailed Metrics
+                </label>
+                <label>
+                    <input type="checkbox" id="enable-smoothing" checked> Enable Chart Smoothing
+                </label>
+            </div>
+        </section>
+
+        <!-- Main Metrics Overview -->
+        <section class="metrics-overview">
+            <div class="metric-card">
+                <h3>System Status</h3>
+                <div class="metric-value" id="system-status">Loading...</div>
+                <div class="metric-label">Overall Health</div>
+            </div>
+            <div class="metric-card">
+                <h3>Active Providers</h3>
+                <div class="metric-value" id="active-providers">0</div>
+                <div class="metric-label">Total: <span id="total-providers">0</span></div>
+            </div>
+            <div class="metric-card">
+                <h3>Requests/sec</h3>
+                <div class="metric-value" id="requests-per-sec">0.0</div>
+                <div class="metric-label">Real-time RPS</div>
+            </div>
+            <div class="metric-card">
+                <h3>WebSocket Connections</h3>
+                <div class="metric-value" id="ws-connections">0</div>
+                <div class="metric-label">Peak: <span id="peak-connections">0</span></div>
+            </div>
+        </section>
+
+        <!-- Charts Grid -->
+        <main class="charts-grid">
+            <!-- Response Time Chart -->
+            <div class="chart-container">
+                <div class="chart-header">
+                    <h3>Provider Response Times</h3>
+                    <div class="chart-controls">
+                        <button class="chart-zoom" data-chart="response-times">Reset Zoom</button>
+                    </div>
+                </div>
+                <canvas id="response-times-chart"></canvas>
+            </div>
+
+            <!-- Success Rate Chart -->
+            <div class="chart-container">
+                <div class="chart-header">
+                    <h3>Provider Success Rates</h3>
+                    <div class="chart-controls">
+                        <button class="chart-zoom" data-chart="success-rates">Reset Zoom</button>
+                    </div>
+                </div>
+                <canvas id="success-rates-chart"></canvas>
+            </div>
+
+            <!-- Request Volume Chart -->
+            <div class="chart-container">
+                <div class="chart-header">
+                    <h3>Request Volume (RPM)</h3>
+                    <div class="chart-controls">
+                        <button class="chart-zoom" data-chart="request-volume">Reset Zoom</button>
+                    </div>
+                </div>
+                <canvas id="request-volume-chart"></canvas>
+            </div>
+
+            <!-- System Resources Chart -->
+            <div class="chart-container">
+                <div class="chart-header">
+                    <h3>System Resources</h3>
+                    <div class="chart-controls">
+                        <button class="chart-zoom" data-chart="system-resources">Reset Zoom</button>
+                    </div>
+                </div>
+                <canvas id="system-resources-chart"></canvas>
+            </div>
+        </main>
+
+        <!-- Provider Details Table -->
+        <section class="provider-details">
+            <div class="table-header">
+                <h2>Provider Details</h2>
+                <div class="table-controls">
+                    <button id="refresh-providers" class="btn btn-small">Refresh</button>
+                </div>
+            </div>
+            <div class="table-container">
+                <table id="providers-table">
+                    <thead>
+                        <tr>
+                            <th>Provider</th>
+                            <th>Status</th>
+                            <th>Response Time (ms)</th>
+                            <th>Success Rate</th>
+                            <th>Requests/min</th>
+                            <th>Last Request</th>
+                            <th>Cost/hr</th>
+                            <th>Tokens Used</th>
+                            <th>Rate Limited</th>
+                        </tr>
+                    </thead>
+                    <tbody id="providers-tbody">
+                        <!-- Dynamic content -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Performance Metrics -->
+        <section class="performance-metrics">
+            <h2>WebSocket Performance</h2>
+            <div class="performance-grid">
+                <div class="perf-card">
+                    <h4>Update Performance</h4>
+                    <div class="perf-metric">
+                        <span class="perf-label">Average Update Time:</span>
+                        <span class="perf-value" id="avg-update-time">0ms</span>
+                    </div>
+                    <div class="perf-metric">
+                        <span class="perf-label">Total Updates:</span>
+                        <span class="perf-value" id="total-updates">0</span>
+                    </div>
+                </div>
+                <div class="perf-card">
+                    <h4>Broadcast Performance</h4>
+                    <div class="perf-metric">
+                        <span class="perf-label">Average Broadcast Time:</span>
+                        <span class="perf-value" id="avg-broadcast-time">0ms</span>
+                    </div>
+                    <div class="perf-metric">
+                        <span class="perf-label">Total Broadcasts:</span>
+                        <span class="perf-value" id="total-broadcasts">0</span>
+                    </div>
+                </div>
+                <div class="perf-card">
+                    <h4>Message Statistics</h4>
+                    <div class="perf-metric">
+                        <span class="perf-label">Messages Sent:</span>
+                        <span class="perf-value" id="messages-sent">0</span>
+                    </div>
+                    <div class="perf-metric">
+                        <span class="perf-label">Messages Dropped:</span>
+                        <span class="perf-value" id="messages-dropped">0</span>
+                    </div>
+                </div>
+                <div class="perf-card">
+                    <h4>Connection Health</h4>
+                    <div class="perf-metric">
+                        <span class="perf-label">Failed Connections:</span>
+                        <span class="perf-value" id="failed-connections">0</span>
+                    </div>
+                    <div class="perf-metric">
+                        <span class="perf-label">Streaming Uptime:</span>
+                        <span class="perf-value" id="streaming-uptime">0s</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Historical Analytics -->
+        <section class="historical-analytics">
+            <h2>Historical Analytics (Last 60 minutes)</h2>
+            <div class="analytics-grid">
+                <div class="analytics-card">
+                    <h4>Response Time Trends</h4>
+                    <canvas id="historical-response-times"></canvas>
+                </div>
+                <div class="analytics-card">
+                    <h4>Success Rate Trends</h4>
+                    <canvas id="historical-success-rates"></canvas>
+                </div>
+                <div class="analytics-card">
+                    <h4>Volume Trends</h4>
+                    <canvas id="historical-volume"></canvas>
+                </div>
+                <div class="analytics-card">
+                    <h4>Resource Usage Trends</h4>
+                    <canvas id="historical-resources"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <footer class="dashboard-footer">
+            <div class="footer-content">
+                <p>Aimux v2.1 - Professional C++ WebUI with Advanced MetricsStreamer</p>
+                <p>Task 2.3: Real-time WebSocket Streaming • <span id="current-time"></span></p>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="loading-overlay">
+        <div class="loading-spinner"></div>
+        <p>Initializing Advanced Metrics System...</p>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <script src="/dashboard.js"></script>
+</body>
+</html>

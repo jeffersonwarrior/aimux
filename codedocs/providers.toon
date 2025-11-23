@@ -1,0 +1,330 @@
+# Aimux v2.0 Provider System Documentation
+
+PROVIDER_ARCHITECTURE
+    Base_Interface   = "aimux::core::Bridge"
+    Factory_Pattern   = "aimux::core::BridgeFactory"
+    Configuration     = "JSON-based provider config"
+    Health_Monitoring = "Built-in health checks"
+    Rate_Limit_Tracking = "Per-provider rate limit management"
+
+SUPPORTED_PROVIDERS
+    claude
+        name           = "Anthropic Claude"
+        endpoint_base  = "https://api.anthropic.com"
+        api_version    = "v1"
+        models         = ["claude-3-sonnet-20241022", "claude-3-opus-20240229", "claude-3-haiku-20240307"]
+        rate_limits    = ["50 requests/minute", "40,000 tokens/minute"]
+        authentication = "API Key (x-api-key header)"
+        config_fields  = ["api_key", "endpoint", "timeout", "retry_attempts"]
+
+    cerebras
+        name           = "Cerebras"
+        endpoint_base  = "https://api.cerebras.ai"
+        api_version    = "v1"
+        models         = ["llama3.1-70b", "llama3.1-8b"]
+        rate_limits    = ["100 requests/minute", "100,000 tokens/minute"]
+        authentication = "Bearer token"
+        config_fields  = ["api_key", "endpoint", "timeout", "retry_attempts"]
+
+    zai
+        name           = "Z.AI"
+        endpoint_base  = "https://api.z.ai"
+        api_version    = "paas/v4"
+        models         = ["claude-3-5-sonnet-20241022", "gpt-4", "gpt-3.5-turbo"]
+        rate_limits    = ["200 requests/minute", "150,000 tokens/minute"]
+        authentication = "API Key"
+        config_fields  = ["api_key", "endpoint", "timeout", "retry_attempts"]
+        priority       = 1
+
+    synthetic
+        name           = "Synthetic AI (Testing)"
+        endpoint_base  = "http://localhost:9999"
+        api_version    = "v1"
+        models         = ["synthetic-gpt-4", "synthetic-claude", "test-model"]
+        rate_limits    = ["Unlimited (test)"]
+        authentication = "Fixed test key"
+        config_fields  = ["api_key", "endpoint", "response_delay_ms"]
+        purpose        = "Testing and development"
+
+PROVIDER_CONFIGURATION
+    Standard_Config_Structure
+        enabled        = "boolean"
+        api_key        = "string (encrypted at rest)"
+        endpoint       = "string URL"
+        timeout_ms     = "integer (default 30000)"
+        retry_attempts = "integer (default 3)"
+        priority       = "integer (lower = higher priority)"
+        max_requests_per_minute = "integer"
+        models         = "array of strings"
+        headers        = "object of key-value pairs"
+
+    Example_Config
+        claude
+            enabled     = true
+            api_key     = "sk-ant-encrypted..."
+            endpoint    = "https://api.anthropic.com"
+            timeout_ms  = 25000
+            retry_attempts = 3
+            priority    = 1
+            max_requests_per_minute = 50
+            models      = ["claude-3-5-sonnet-20241022"]
+            headers     = {"anthropic-version": "2023-06-01"}
+
+        zai
+            enabled     = true
+            api_key     = "85c99bec0fa64a0d8a4a01463868667a.RsDzW0iuxtgvYqd2"
+            endpoint    = "https://api.z.ai/api/paas/v4"
+            timeout_ms  = 30000
+            retry_attempts = 3
+            priority    = 2
+            max_requests_per_minute = 200
+            models      = ["claude-3-5-sonnet-20241022", "gpt-4"]
+
+PROVIDER_BRIDGE_IMPLEMENTATIONS
+    ClaudeBridge
+        header         = "include/aimux/providers/claude_bridge.hpp"
+        implementation  = "src/providers/claude_bridge.cpp"
+        extends        = "aimux::core::Bridge"
+
+        API_MAPPING
+            messages     = "messages array"
+            max_tokens   = "max_tokens"
+            temperature  = "temperature"
+            top_p        = "top_p"
+            system_prompt = "system (optional)"
+
+        HEADERS
+            x-api-key    = "api_key"
+            content-type = "application/json"
+            anthropic-version = "2023-06-01"
+
+        RESPONSE_PARSING
+            content       = "content[0].text"
+            usage         = "usage object"
+            model         = "model"
+            id            = "id"
+
+        ERROR_HANDLING
+            400           = "Invalid request"
+            401           = "Invalid API key"
+            429           = "Rate limit exceeded"
+            500           = "Server error"
+
+    CerebrasBridge
+        header         = "include/aimux/providers/cerebras_bridge.hpp"
+        implementation  = "src/providers/cerebras_bridge.cpp"
+        extends        = "aimux::core::Bridge"
+
+        API_MAPPING
+            messages     = "messages array"
+            max_tokens   = "max_tokens"
+            temperature  = "temperature"
+            top_p        = "top_p"
+            stream       = "stream (boolean)"
+
+        HEADERS
+            authorization = "Bearer {api_key}"
+            content-type  = "application/json"
+
+        ERROR_HANDLING
+            rate_limit_recovery = "Exponential backoff"
+
+    ZaiBridge
+        header         = "include/aimux/providers/zai_bridge.hpp"
+        implementation  = "src/providers/zai_bridge.cpp"
+        extends        = "aimux::core::Bridge"
+
+        API_MAPPING
+            messages     = "messages array"
+            max_tokens   = "max_tokens"
+            temperature  = "temperature"
+            model        = "model"
+
+        HEADERS
+            authorization = "Bearer {api_key}"
+            content-type  = "application/json"
+
+    SyntheticBridge
+        header         = "include/aimux/providers/synthetic_bridge.hpp"
+        implementation  = "src/providers/synthetic_bridge.cpp"
+        extends        = "aimux::core::Bridge"
+        purpose        = "Testing and development"
+
+        FEATURES
+            deterministic_responses = true
+            response_delay_configurable = true
+            error_simulation = true
+            rate_limit_simulation = true
+
+PROVIDER_FACTORY
+    BridgeFactory
+        method         = "Factory Pattern with Singleton"
+        registration   = "Automatic provider discovery"
+        validation     = "Configuration schema validation"
+        creation       = "Lazy initialization"
+
+        create_provider
+            parameters   = ["string provider_name", "json config"]
+            returns      = "unique_ptr<Bridge>"
+            exceptions   = ["invalid_argument", "runtime_error"]
+
+        get_supported_providers
+            returns      = "vector<string>"
+            static       = true
+
+        REGISTRATION
+            claude        = "ClaudeBridge"
+            cerebras      = "CerebrasBridge"
+            zai           = "ZaiBridge"
+            synthetic     = "SyntheticBridge"
+
+LOAD_BALANCING_INTEGRATION
+    Provider_Selection_Strategies
+        ROUND_ROBIN
+            algorithm     = "Sequential rotation"
+            weight        = "Equal distribution"
+
+        LEAST_CONNECTIONS
+            algorithm     = "Select provider with fewest active requests"
+            tracking      = "Per-provider connection count"
+
+        FASTEST_RESPONSE
+            algorithm     = "Select provider with lowest average response time"
+            metric        = "Exponential moving average"
+
+        WEIGHTED_ROUND_ROBIN
+            algorithm     = "Weighted rotation based on priority"
+            weight_source = "Provider priority config"
+
+        ADAPTIVE
+            algorithm     = "Machine learning-based selection"
+            factors       = ["Response time", "Success rate", "Rate limit status"]
+
+        RANDOM
+            algorithm     = "Random selection from available providers"
+            use_case      = "Testing and fallback"
+
+FAILOVER_MECHANISMS
+    Health_Checking
+        frequency       = "Every 30 seconds"
+        timeout         = "5 seconds"
+        endpoint        = "Provider-specific health endpoint"
+        success_criteria = "HTTP 200-299"
+
+    Failure_Detection
+        connection_timeout = "Provider timeout exceeded"
+        http_error        = "5xx server errors"
+        rate_limit        = "429 with no retry-after"
+        consecutive_failures = "3 failures trigger failover"
+
+    Recovery_Process
+        cooldown_period   = "5 minutes default"
+        gradual_recovery  = "10% of traffic initially"
+        full_recovery     = "100% traffic after success"
+
+    Circuit_Breaker
+        failure_threshold = "5 consecutive failures"
+        recovery_timeout   = "60 seconds"
+        half_open_requests = "3 trial requests"
+
+RATE_LIMIT_MANAGEMENT
+    Tracking_Per_Provider
+        requests_made     = "Counter for current period"
+        requests_limit    = "Provider quota"
+        tokens_used       = "Token counter"
+        tokens_limit      = "Token quota"
+        reset_time        = "Next reset timestamp"
+        retry_after       = "Seconds until next request"
+
+    Rate_Limit_Strategies
+        respect_headers   = "Honor provider rate limit headers"
+        local_enforcement = "Pre-emptive rate limiting"
+        token_bucket      = "Token bucket algorithm"
+        adaptive_rate     = "Dynamic rate adjustment"
+
+    Rate_Limit_Responses
+        429_handling     = "Automatic retry with exponential backoff"
+            initial_delay = "1 second"
+            max_delay     = "60 seconds"
+            multiplier    = "2.0"
+
+        quota_exhausted  = "Switch to next provider"
+            failover_criteria = "Requests remaining < 5"
+
+SECURITY_INTEGRATION
+    API_Key_Management
+        encryption       = "AES-256-GCM at rest"
+        rotation         = "Automatic key rotation"
+        validation       = "Format and length validation"
+        audit_logging    = "All key access logged"
+
+    Authentication_Methods
+        bearer_token     = "Authorization: Bearer {key}"
+        api_key_header   = "X-API-Key: {key}"
+        custom_header    = "Provider-specific headers"
+
+    Security_Features
+        key_expiry       = "Automatic expiration handling"
+        key_revocation   = "Immediate invalidation"
+        secure_storage   = "Encrypted configuration files"
+        audit_trail      = "Complete access logging"
+
+PROVIDER_MONITORING
+    Metrics_Per_Provider
+        request_count    = "Total requests handled"
+        success_rate     = "Successful requests percentage"
+        average_response_time = "Mean response time"
+        p95_response_time = "95th percentile"
+        error_rate       = "Failed request percentage"
+        rate_limit_hits  = "Rate limit encountered"
+        downtime_seconds = "Total unavailable time"
+
+    Health_Status
+        status           = "healthy/unhealthy/unknown"
+        last_check       = "Timestamp of last health check"
+        consecutive_failures = "Count since last success"
+        time_since_success = "Seconds since last successful request"
+
+    Alerting_Conditions
+        high_error_rate   = "Error rate > 5%"
+        slow_response     = "P95 response time > 1000ms"
+        rate_limit_breach = "Rate limit exceeded frequently"
+        provider_unavailable = "Health check failures"
+
+PERFORMANCE_OPTIMIZATIONS
+    Connection_Reuse
+        keep_alive       = "HTTP/1.1 persistent connections"
+        connection_pool  = "Shared connection pool"
+        max_connections = "100 per provider"
+        idle_timeout    = "30 seconds"
+
+    Request_Batching
+        batch_requests   = "Where supported by provider"
+        batch_size       = "10 requests maximum"
+        batch_timeout    = "100ms aggregation window"
+
+    Caching_Per_Provider
+        response_cache   = "L1 cache per provider"
+        cache_ttl        = "5 minutes default"
+        cache_key        = "Hash of request parameters"
+        cache_invalidation = "TTL-based"
+
+TESTING_FRAMEWORK
+    Provider_Tests
+        health_check_test = "Verify provider availability"
+        authentication_test = "Validate API key"
+        request_response_test = "Send test request"
+        rate_limit_test = "Verify rate limit handling"
+        failover_test = "Test failure scenarios"
+
+    Performance_Tests
+        load_test        = "Concurrent request load"
+        stress_test       = "Maximum capacity test"
+        latency_test      = "Response time measurement"
+        throughput_test   = "Requests per second"
+
+    Mock_Provider
+        synthetic_bridge  = "Configurable mock responses"
+        delay_simulation  = "Configurable response delays"
+        error_simulation  = "Configurable error rates"
+        rate_limit_simulation = "Configurable rate limits"

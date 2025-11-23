@@ -1,0 +1,5 @@
+    static nlohmann::json parse_toon_value(const std::string& value);
+};
+
+} // namespace providers
+} // namespace aimux

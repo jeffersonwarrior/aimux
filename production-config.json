@@ -1,0 +1,84 @@
+{
+    "server": {
+        "bind_address": "0.0.0.0",
+        "port": 8080,
+        "webui_enabled": true
+    },
+    "daemon": {
+        "auto_restart": true,
+        "enabled": true,
+        "group": "aimux",
+        "log_file": "/var/log/aimux/aimux.log",
+        "pid_file": "/var/run/aimux.pid",
+        "user": "aimux",
+        "working_directory": "/var/lib/aimux"
+    },
+    "load_balancing": {
+        "circuit_breaker": {
+            "enabled": true,
+            "failure_threshold": 5,
+            "recovery_timeout": 60
+        },
+        "failover_enabled": true,
+        "health_check_interval": 30,
+        "retry_on_failure": true,
+        "strategy": "adaptive"
+    },
+    "monitoring": {
+        "alert_thresholds": {
+            "max_error_rate": 0.01,
+            "max_response_time_ms": 1000,
+            "min_success_rate": 0.99
+        },
+        "dashboard_enabled": true,
+        "health_checks": true,
+        "metrics_collection": true,
+        "performance_alerts": true
+    },
+    "providers": {
+        "cerebras": {
+            "enabled": true,
+            "endpoint": "https://api.cerebras.ai",
+            "max_requests_per_minute": 300,
+            "priority": 1,
+            "retry_attempts": 3,
+            "timeout_ms": 30000
+        },
+        "synthetic": {
+            "enabled": false,
+            "endpoint": "https://synthetic.test",
+            "max_requests_per_minute": 100,
+            "priority": 3,
+            "timeout_ms": 5000
+        },
+        "zai": {
+            "enabled": true,
+            "endpoint": "https://api.z.ai",
+            "max_requests_per_minute": 200,
+            "priority": 2,
+            "retry_attempts": 3,
+            "timeout_ms": 25000
+        }
+    },
+    "security": {
+        "api_key_encryption": true,
+        "audit_logging": true,
+        "input_validation": true,
+        "rate_limiting": true,
+        "ssl_verification": true
+    },
+    "system": {
+        "environment": "production",
+        "log_level": "warn",
+        "max_concurrent_requests": 1000,
+        "structured_logging": true
+    },
+    "webui": {
+        "api_docs": true,
+        "cors_enabled": true,
+        "enabled": true,
+        "port": 8080,
+        "real_time_metrics": true,
+        "ssl_enabled": true
+    }
+}
