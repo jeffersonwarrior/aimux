@@ -1,0 +1,12 @@
+{
+  "name": "aimux2",
+  "version": "2.0.0",
+  "description": "AI Multiplexer v2.0 - High-performance C++ router",
+  "dependencies": [
+    "nlohmann-json",
+    "curl",
+    "crow",
+    "asio"
+  ],
+  "builtin-baseline": "8fbf295ab5283313932f65a597a2c1f09a73fafd"
+}

@@ -1,0 +1,54 @@
+{
+    "version": "2.0.0",
+    "providers": {
+        "cerebras": {
+            "enabled": true,
+            "api_key": "sk-cerebras-demo-key",
+            "endpoint": "https://api.cerebras.ai",
+            "max_requests_per_minute": 60,
+            "timeout_ms": 30000,
+            "model": "llama3.1-70b"
+        },
+        "zai": {
+            "enabled": true,
+            "api_key": "zai-demo-key",
+            "endpoint": "https://api.z.ai",
+            "max_requests_per_minute": 60,
+            "timeout_ms": 30000,
+            "model": "zai-gpt-4"
+        },
+        "minimax": {
+            "enabled": true,
+            "api_key": "minimax-demo-key",
+            "endpoint": "https://api.minimax.chat",
+            "max_requests_per_minute": 60,
+            "timeout_ms": 30000,
+            "model": "abab6.5s-chat"
+        },
+        "synthetic": {
+            "enabled": true,
+            "api_key": "synthetic-key",
+            "endpoint": "https://synthetic.local",
+            "max_requests_per_minute": 60,
+            "timeout_ms": 1000,
+            "model": "synthetic-gpt"
+        }
+    },
+    "router": {
+        "default_provider": "cerebras",
+        "failover_enabled": true,
+        "health_check_interval_seconds": 30,
+        "max_retries": 3
+    },
+    "webui": {
+        "enabled": true,
+        "port": 8080,
+        "require_auth": false,
+        "refresh_interval_ms": 5000
+    },
+    "logging": {
+        "level": "info",
+        "structured": true,
+        "file": "aimux.log"
+    }
+}

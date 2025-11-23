@@ -1,0 +1,393 @@
+# Aimux v2.0 Core Components Documentation
+
+CORE_COMPONENTS
+    aimux::core::Bridge
+        type            = "Abstract Interface"
+        header          = "include/aimux/core/bridge.hpp"
+        implementation  = "src/core/bridge.cpp"
+        purpose         = "Provider abstraction layer"
+        thread_safe     = true
+        lifecycle       = "Factory-created, managed unique_ptr"
+
+        METHODS
+            send_request
+                parameters      = ["Request& request"]
+                return_type     = "Response"
+                virtual         = true
+                throws          = ["runtime_error", "invalid_argument"]
+                performance     = "< 500ms target"
+
+            is_healthy
+                parameters      = []
+                return_type     = "bool"
+                virtual         = true
+                const           = true
+                performance     = "< 100ms target"
+
+            get_provider_name
+                parameters      = []
+                return_type     = "std::string"
+                virtual         = true
+                const           = true
+
+            get_rate_limit_status
+                parameters      = []
+                return_type     = "nlohmann::json"
+                virtual         = true
+                const           = true
+
+        FACTORY
+            BridgeFactory
+                pattern         = "Singleton"
+                create_bridge
+                    parameters   = ["string provider_name", "json config"]
+                    return      = "unique_ptr<Bridge>"
+                    static      = true
+
+    aimux::core::Router
+        type            = "Orchestrator"
+        header          = "include/aimux/core/router.hpp"
+        implementation  = "src/core/router.cpp"
+        purpose         = "Request routing and provider management"
+        thread_safe     = true
+        dependencies    = ["Bridge", "LoadBalancer", "FailoverManager"]
+
+        METHODS
+            route
+                parameters      = ["Request& request"]
+                return_type     = "Response"
+                algorithm       = "LoadBalancer + Failover"
+
+            get_health_status
+                parameters      = []
+                return_type     = "string"
+
+            get_metrics
+                parameters      = []
+                return_type     = "json"
+
+        MEMBERS
+            providers        = "vector<ProviderConfig>"
+            load_balancer    = "unique_ptr<LoadBalancer>"
+            failover_manager = "unique_ptr<FailoverManager>"
+
+    aimux::core::FailoverManager
+        type            = "Reliability Manager"
+        header          = "include/aimux/core/failover.hpp"
+        implementation  = "src/core/failover.cpp"
+        purpose         = "Provider failure detection and switching"
+        thread_safe     = true
+
+        STRUCTURES
+            ProviderStatus
+                fields          = ["name", "is_failed", "fail_time", "cooldown_minutes", "failure_count"]
+
+        METHODS
+            get_next_provider
+                parameters      = ["string failed_provider"]
+                return_type     = "string"
+
+            mark_failed
+                parameters      = ["string provider", "int cooldown_minutes=5"]
+                return_type     = "void"
+
+            is_available
+                parameters      = ["string provider"]
+                return_type     = "bool"
+
+            get_statistics
+                parameters      = []
+                return_type     = "json"
+
+    aimux::core::LoadBalancer
+        type            = "Traffic Distributor"
+        header          = "include/aimux/core/failover.hpp"
+        implementation  = "src/core/failover.cpp"
+        purpose         = "Request distribution across providers"
+        thread_safe     = true
+
+        ENUMS
+            Strategy
+                values          = ["ROUND_ROBIN", "LEAST_CONNECTIONS", "FASTEST_RESPONSE", "WEIGHTED_ROUND_ROBIN", "ADAPTIVE", "RANDOM"]
+
+        STRUCTURES
+            ProviderMetrics
+                fields          = ["name", "avg_response_time_ms", "current_connections", "total_requests"]
+
+        METHODS
+            select_provider
+                parameters      = ["vector<string> available_providers"]
+                return_type     = "string"
+
+            update_response_time
+                parameters      = ["string provider", "double response_time_ms"]
+                return_type     = "void"
+
+            set_strategy
+                parameters      = ["Strategy strategy"]
+                return_type     = "void"
+
+GATEWAY_COMPONENTS
+    aimux::gateway::UnifiedGateway
+        type            = "HTTP Gateway"
+        header          = "include/aimux/gateway/unified_gateway.hpp"
+        implementation  = "src/gateway/unified_gateway.cpp"
+        purpose         = "Dual API endpoint (Anthropic/OpenAI)"
+        thread_safe     = true
+        port_count      = 2
+
+        STRUCTURES
+            GatewayConfig
+                fields          = ["anthropic_port", "openai_port", "bind_address", "enabled_providers", "connection_timeout_ms", "max_concurrent_requests"]
+
+            RequestContext
+                fields          = ["request_id", "start_time", "detected_format", "client_format", "provider_format", "selected_provider"]
+
+            GatewayMetrics
+                fields          = ["total_requests", "anthropic_requests", "openai_requests", "successful_requests", "failed_requests"]
+
+        METHODS
+            start
+                parameters      = []
+                return_type     = "bool"
+
+            stop
+                parameters      = []
+                return_type     = "void"
+
+            add_provider
+                parameters      = ["string name", "unique_ptr<Bridge> bridge"]
+                return_type     = "void"
+
+        SERVER_SETUP
+            setup_anthropic_server
+                port            = "8080"
+
+            setup_openai_server
+                port            = "8081"
+
+    aimux::gateway::FormatDetector
+        type            = "API Format Analyzer"
+        header          = "include/aimux/gateway/format_detector.hpp"
+        implementation  = "src/gateway/format_detector.cpp"
+        purpose         = "Detect Anthropic vs OpenAI API formats"
+
+        ENUMS
+            APIFormat
+                values          = ["ANTHROPIC", "OPENAI", "UNKNOWN"]
+
+        METHODS
+            detect_format
+                parameters      = ["const crow::request& req"]
+                return_type     = "APIFormat"
+
+    aimux::gateway::ApiTransformer
+        type            = "Format Converter"
+        header          = "include/aimux/gateway/api_transformer.hpp"
+        implementation  = "src/gateway/api_transformer.cpp"
+        purpose         = "Transform between API formats"
+
+        METHODS
+            transform_request
+                parameters      = ["json request", "APIFormat from_format", "APIFormat to_format"]
+                return_type     = "json"
+
+            transform_response
+                parameters      = ["json response", "APIFormat from_format", "APIFormat to_format"]
+                return_type     = "json"
+
+NETWORK_COMPONENTS
+    aimux::network::ConnectionPool
+        type            = "Resource Manager"
+        header          = "include/aimux/network/connection_pool.hpp"
+        implementation  = "src/network/connection_pool.cpp"
+        purpose         = "HTTP connection reuse and management"
+        thread_safe     = true
+
+        STRUCTURES
+            PoolStats
+                fields          = ["total_connections", "active_connections", "available_connections", "avg_wait_time_ms"]
+
+            PooledConnection
+                fields          = ["client", "last_used", "base_url"]
+
+        METHODS
+            get_connection
+                parameters      = ["string base_url", "int timeout_ms=30000"]
+                return_type     = "shared_ptr<HttpClient>"
+
+            return_connection
+                parameters      = ["shared_ptr<HttpClient> connection"]
+                return_type     = "void"
+
+            shutdown
+                parameters      = []
+                return_type     = "void"
+
+    aimux::network::HttpClient
+        type            = "HTTP Client"
+        header          = "include/aimux/network/http_client.hpp"
+        implementation  = "src/network/http_client.cpp"
+        purpose         = "HTTP request/response handling"
+        thread_safe     = true
+
+        METHODS
+            post
+                parameters      = ["string url", "json payload", "map<string,string> headers"]
+                return_type     = "Response"
+
+            get
+                parameters      = ["string url", "map<string,string> headers"]
+                return_type     = "Response"
+
+SECURITY_COMPONENTS
+    aimux::security::AdvancedCrypto
+        type            = "Cryptographic Engine"
+        header          = "include/aimux/security/advanced_crypto.hpp"
+        implementation  = "src/security/advanced_crypto.cpp"
+        purpose         = "API key encryption and secure operations"
+
+        STRUCTURES
+            EncryptedData
+                fields          = ["ciphertext", "iv", "tag", "salt"]
+
+            KeyMetadata
+                fields          = ["key_id", "created_at", "expires_at", "is_active", "version"]
+
+        METHODS
+            encrypt_api_key
+                parameters      = ["string api_key"]
+                return_type     = "EncryptedData"
+
+            decrypt_api_key
+                parameters      = ["EncryptedData& encrypted_data"]
+                return_type     = "string"
+
+            rotate_master_key
+                parameters      = ["int grace_period_hours=24"]
+                return_type     = "void"
+
+        CONSTANTS
+            AES_KEY_SIZE    = 32
+            IV_SIZE         = 12
+            TAG_SIZE        = 16
+            SALT_SIZE       = 16
+
+CACHE_COMPONENTS
+    aimux::cache::ResponseCache
+        type            = "Intelligent Cache"
+        header          = "include/aimux/cache/response_cache.hpp"
+        implementation  = "src/cache/response_cache.cpp"
+        purpose         = "Response caching with LRU eviction"
+        thread_safe     = true
+
+        STRUCTURES
+            CacheEntry
+                fields          = ["response", "timestamp", "ttl", "hit_count", "response_size"]
+
+            Config
+                fields          = ["max_entries", "max_memory_mb", "default_ttl", "max_ttl"]
+
+            Stats
+                fields          = ["hits", "misses", "entries", "memory_usage_bytes", "hit_rate"]
+
+        METHODS
+            generateKey
+                parameters      = ["string model", "json request"]
+                return_type     = "string"
+
+            get
+                parameters      = ["string key"]
+                return_type     = "optional<json>"
+
+            put
+                parameters      = ["string key", "json response", "optional<milliseconds> ttl"]
+                return_type     = "void"
+
+            cleanup
+                parameters      = []
+                return_type     = "size_t"
+
+MONITORING_COMPONENTS
+    MetricsCollector
+        type            = "Data Aggregator"
+        purpose         = "Real-time metrics collection"
+        thread_safe     = true
+
+        METRICS_TYPES
+            counters        = ["total_requests", "successful_requests", "failed_requests"]
+            gauges          = ["response_time", "active_connections", "queue_size"]
+            histograms      = ["response_time_distribution"]
+
+    AlertManager
+        type            = "Alert System"
+        purpose         = "Threshold-based alerting"
+        alert_types     = ["performance", "reliability", "capacity", "security"]
+
+        THRESHOLDS
+            max_response_time_ms = 1000
+            min_success_rate    = 0.95
+            max_error_rate      = 0.05
+
+INTERACTIONS
+    Request_Flow
+        Client -> UnifiedGateway
+            methods        = ["POST", "GET"]
+            formats        = ["Anthropic", "OpenAI"]
+
+        UnifiedGateway -> FormatDetector
+            purpose         = "Identify API format"
+
+        FormatDetector -> ApiTransformer
+            purpose         = "Convert to provider format"
+
+        ApiTransformer -> LoadBalancer
+            purpose         = "Select provider"
+
+        LoadBalancer -> FailoverManager
+            purpose         = "Verify provider health"
+
+        FailoverManager -> Bridge
+            purpose         = "Send request to provider"
+
+    Monitoring_Flow
+        All_Components -> MetricsCollector
+            events          = ["request_start", "request_complete", "error", "health_check"]
+
+        MetricsCollector -> AlertManager
+            data            = "Aggregated metrics"
+
+        AlertManager -> WebUI_Dashboard
+            alerts          = "Real-time notifications"
+
+LIFECYCLE_MANAGEMENT
+    Initialization_Sequence
+        1 -> "Configuration validation"
+        2 -> "Logger initialization"
+        3 -> "Bridge factory setup"
+        4 -> "Connection pool creation"
+        5 -> "Cache initialization"
+        6 -> "Gateway startup"
+        7 -> "WebUI server start"
+
+    Shutdown_Sequence
+        1 -> "Stop accepting new requests"
+        2 -> "Drain active connections"
+        3 -> "Flush cache to disk (if needed)"
+        4 -> "Stop provider bridges"
+        5 -> "Cleanup connection pool"
+        6 -> "Stop monitoring threads"
+        7 -> "Final log flush"
+
+ERROR_BOUNDARIES
+    Component_Isolation
+        Bridge_Failures -> "FailoverManager handles switching"
+        Network_Timeouts -> "ConnectionPool retries with new connections"
+        Cache_Errors -> "Fallback to direct provider requests"
+        Gateway_Errors -> "Client receives appropriate error responses"
+
+    Recovery_Strategies
+        Automatic_Restart = "Failed provider bridges"
+        Circuit_Breaker   = "Repeatedly failing connections"
+        Cache_Rebuild     = "Corrupted cache data"
+        Config_Reload     = "Configuration errors"

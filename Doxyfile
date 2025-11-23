@@ -1,0 +1,527 @@
+# Doxyfile 1.9.7 for Aimux v2.0.0
+
+# -----------------------------------------------------------------
+# Project Configuration
+# -----------------------------------------------------------------
+
+# Project identification
+PROJECT_NAME           = "Aimux v2.0.0"
+PROJECT_NUMBER         = "2.0.0"
+PROJECT_BRIEF          = "Intelligent AI Model Provider Router with Automatic Failover"
+PROJECT_LOGO           =
+
+# Output directory
+OUTPUT_DIRECTORY       = docs/doxygen
+
+# Create subdirectories
+CREATE_SUBDIRS         = YES
+
+# Allow Unicode characters
+OUTPUT_LANGUAGE        = English
+OPTIMIZE_FOR_FORTRAN   = NO
+OPTIMIZE_OUTPUT_VHDL   = NO
+OPTIMIZE_OUTPUT_FOR_C  = YES
+
+# -----------------------------------------------------------------
+# Build Configuration
+# -----------------------------------------------------------------
+
+# Source files and patterns
+EXTRACT_ALL            = YES
+EXTRACT_PRIVATE        = YES
+EXTRACT_PACKAGE        = YES
+EXTRACT_STATIC         = YES
+EXTRACT_LOCAL_CLASSES  = YES
+EXTRACT_LOCAL_METHODS  = YES
+EXTRACT_ANON_NSPACES   = YES
+
+# Input files and directories
+INPUT                  = include/aimux \
+                         src \
+                         README.md
+
+# File patterns
+FILE_PATTERNS          = *.c \
+                         *.cc \
+                         *.cxx \
+                         *.cpp \
+                         *.c++ \
+                         *.java \
+                         *.ii \
+                         *.ixx \
+                         *.ipp \
+                         *.i++ \
+                         *.inl \
+                         *.idl \
+                         *.ddl \
+                         *.odl \
+                         *.h \
+                         *.hh \
+                         *.hxx \
+                         *.hpp \
+                         *.h++ \
+                         *.cs \
+                         *.d \
+                         *.php \
+                         *.php4 \
+                         *.php5 \
+                         *.phtml \
+                         *.inc \
+                         *.m \
+                         *.markdown \
+                         *.md \
+                         *.mm \
+                         *.dox \
+                         *.py \
+                         *.pyw \
+                         *.f90 \
+                         *.f95 \
+                         *.f03 \
+                         *.f08 \
+                         *.f18 \
+                         *.f \
+                         *.for \
+                         *.vhd \
+                         *.vhdl
+
+# Recursive source processing
+RECURSIVE              = YES
+
+# Exclude patterns (build artifacts, third-party)
+EXCLUDE                = vcpkg/ \
+                         build*/ \
+                         tests/ \
+                         docs/ \
+                         *.git*
+
+# -----------------------------------------------------------------
+# Documentation Generation
+# -----------------------------------------------------------------
+
+# Input encoding
+INPUT_ENCODING         = UTF-8
+
+# -----------------------------------------------------------------
+# Source Browser
+# -----------------------------------------------------------------
+
+# Source code browsing
+SOURCE_BROWSER         = YES
+INLINE_SOURCES         = YES
+STRIP_CODE_COMMENTS    = NO
+REFERENCED_BY_RELATION = YES
+REFERENCES_RELATION     = YES
+REFERENCES_LINK_SOURCE = YES
+SOURCE_TOOLTIPS        = YES
+
+# -----------------------------------------------------------------
+# Index Generation
+# -----------------------------------------------------------------
+
+# Create various indexes
+ALPHABETICAL_INDEX     = YES
+IGNORE_PREFIX          = _
+
+# -----------------------------------------------------------------
+# HTML Output Options
+# -----------------------------------------------------------------
+
+# HTML output generation
+GENERATE_HTML          = YES
+HTML_OUTPUT            = html
+HTML_FILE_EXTENSION    = .html
+HTML_HEADER            =
+HTML_FOOTER            =
+HTML_STYLESHEET        =
+HTML_EXTRA_STYLESHEET  =
+HTML_EXTRA_FILES       =
+
+# Color scheme
+HTML_COLORSTYLE_HUE    = 220
+HTML_COLORSTYLE_SAT    = 100
+HTML_COLORSTYLE_GAMMA  = 80
+
+# Dynamic sections
+GENERATE_TREEVIEW      = YES
+TREEVIEW_WIDTH         = 250
+ENUM_VALUES_PER_LINE   = 4
+FORMULA_FONTSIZE       = 10
+
+# Use MathJax for formulas
+USE_MATHJAX            = YES
+MATHJAX_FORMAT         = HTML-CSS
+MATHJAX_RELPATH        = https://cdn.jsdelivr.net/npm/mathjax@2
+
+# -----------------------------------------------------------------
+# CSS and Theme Options
+# -----------------------------------------------------------------
+
+# Doxygen built-in styles
+HTML_TIMESTAMP         = YES
+HTML_DYNAMIC_SECTIONS  = NO
+HTML_DYNAMIC_MENUS     = YES
+
+# Custom CSS for modern look
+HTML_EXTRA_STYLESHEET  =
+
+# -----------------------------------------------------------------
+# LaTeX Output Options
+# -----------------------------------------------------------------
+
+# PDF generation
+GENERATE_LATEX         = YES
+LATEX_OUTPUT           = latex
+LATEX_CMD_NAME         = latex
+MAKEINDEX_CMD_NAME     = makeindex
+LATEX_MAKEINDEX_CMD    = makeindex
+COMPRESS_LATEX         = NO
+LATEX_BATCHMODE        = NO
+LATEX_HIDE_INDICES     = NO
+LATEX_BIB_STYLE        = plain
+LATEX_TIMESTAMP        = NO
+
+# PDF settings
+PDF_HYPERLINKS         = YES
+USE_PDFLATEX           = YES
+LATEX_PDFLATEX         = YES
+LATEX_BATCHMODE        = NO
+LATEX_COMPILER         = pdflatex
+
+# -----------------------------------------------------------------
+# RTF Output Options
+# -----------------------------------------------------------------
+
+GENERATE_RTF           = NO
+RTF_OUTPUT             = rtf
+COMPACT_RTF            = NO
+RTF_HYPERLINKS         = NO
+RTF_STYLESHEET_FILE    =
+RTF_EXTENSIONS_FILE    =
+RTF_FONT_HEADER        =
+RTF_FONT_NAME          =
+RTF_FONT_SIZE          =
+RTF_CONFIGURATION      =
+
+# -----------------------------------------------------------------
+# Man Page Output
+# -----------------------------------------------------------------
+
+GENERATE_MAN           = YES
+MAN_OUTPUT             = man
+MAN_EXTENSION          = .3
+MAN_LINKS              = YES
+
+# -----------------------------------------------------------------
+# XML Output Options
+# -----------------------------------------------------------------
+
+GENERATE_XML           = YES
+XML_OUTPUT             = xml
+XML_PROGRAMLISTING     = YES
+
+# -----------------------------------------------------------------
+# Configuration options related to the DEF file generation
+# -----------------------------------------------------------------
+
+GENERATE_DEF           = NO
+
+# -----------------------------------------------------------------
+# Perl Module Output
+# -----------------------------------------------------------------
+
+GENERATE_PERLMOD       = NO
+PERLMOD_LATEX          = NO
+PERLMOD_PRETTY         = YES
+PERLMOD_MAKEVAR_PREFIX =
+
+# -----------------------------------------------------------------
+# Documentation Generation
+# -----------------------------------------------------------------
+
+# Enable C++ specific features
+ENABLE_PREPROCESSING   = YES
+MACRO_EXPANSION        = YES
+EXPAND_ONLY_PREDEF     = NO
+SEARCH_INCLUDES        = YES
+INCLUDE_PATH           = include/
+INCLUDE_FILE_PATTERNS  =
+PREDEFINED             =
+EXPAND_AS_DEFINED      =
+SKIP_FUNCTION_MACROS   = YES
+
+# -----------------------------------------------------------------
+# External references
+# -----------------------------------------------------------------
+
+TAGFILES               =
+GENERATE_TAGFILE       =
+ALLEXTERNALS           = NO
+EXTERNAL_GROUPS        = YES
+EXTERNAL_PAGES         = YES
+
+# Configuration options related to the dot tool
+# -----------------------------------------------------------------
+
+# Class diagrams
+CLASS_DIAGRAMS         = YES
+MSCGEN_PATH            =
+DIA_PATH               =
+HIDE_UNDOC_RELATIONS   = YES
+HAVE_DOT               = YES
+DOT_NUM_THREADS        = 0
+DOT_FONTNAME           = Helvetica
+DOT_FONTSIZE           = 10
+DOT_FONTCATH           =
+CLASS_GRAPH            = YES
+COLLABORATION_GRAPH    = YES
+GROUP_GRAPHS           = YES
+UML_LOOK               = YES
+UML_LIMIT_NUM_FIELDS   = 50
+TEMPLATE_RELATIONS     = YES
+INCLUDE_GRAPH          = YES
+INCLUDED_BY_GRAPH      = YES
+CALL_GRAPH             = YES
+CALLER_GRAPH           = YES
+GRAPHICAL_HIERARCHY    = YES
+DIRECTORY_GRAPH        = YES
+DIR_GRAPH_MAX_DEPTH    = 25
+DOT_IMAGE_FORMAT       = svg
+INTERACTIVE_SVG        = YES
+DOT_PATH               =
+DOTFILE_DIRS           =
+MSCFILE_DIRS           =
+DIAFILE_DIRS           =
+PLANTUML_JAR_PATH      =
+PLANTUML_CFG_FILE      =
+PLANTUML_INCLUDE_PATH  =
+DOT_GRAPH_MAX_NODES    = 50
+MAX_DOT_GRAPH_DEPTH    = 0
+DOT_TRANSPARENT        = NO
+DOT_MULTI_TARGETS      = NO
+GENERATE_LEGEND        = YES
+
+# -----------------------------------------------------------------
+# Warning and Report Options
+# -----------------------------------------------------------------
+
+# Warning levels and messages
+QUIET                  = NO
+WARNINGS               = YES
+WARN_IF_UNDOCUMENTED   = YES
+WARN_IF_DOC_ERROR      = YES
+WARN_NO_PARAMDOC       = YES
+WARN_FORMAT            = "$file:$line: $text"
+WARN_LOGFILE           = docs/doxygen_warnings.log
+
+# Input filtering
+INPUT_FILTER           = "sed 's/[ \\t]*$//'"
+FILTER_PATTERNS        =
+FILTER_SOURCE_FILES    = YES
+FILTER_SOURCE_PATTERNS =
+
+# -----------------------------------------------------------------
+# Additional Options for C++
+# -----------------------------------------------------------------
+
+# Enable modern C++ features
+CPP_CLI_SUPPORT        = NO
+SUPPORT_SUPPRESS_WARNINGS_BY_ATTRIBUTES = NO
+
+# -----------------------------------------------------------------
+# Project Specific Options
+# -----------------------------------------------------------------
+
+# Special commands for better formatting
+ALIASES                = "threadsafe={This method is thread-safe.}" \
+                         "notthreadsafe={This method is not thread-safe.}" \
+                         "since={Since version:}" \
+                         "deprecated={Deprecated:}" \
+                         "todo={TODO:}" \
+                         "bug={BUG:}" \
+                         "note={NOTE:}" \
+                         "warning={WARNING:}" \
+                         "remark={REMARK:}" \
+                         "see={See also:}" \
+                         "return={@return}" \
+                         "throw={@throw}" \
+                         "throws={@throws}" \
+                         "param={@param}" \
+                         "tparam={@tparam}" \
+                         "code={@code}" \
+                         "endcode={@endcode}" \
+                         "pre={@pre}" \
+                         "endpre={@endpre}" \
+                         "verbatim={@verbatim}" \
+                         "endverbatim={@endverbatim}" \
+                         "htmlonly={@htmlonly}" \
+                         "endhtmlonly={@endhtmlonly}" \
+                         "manonly={@manonly}" \
+                         "endmanonly={@endmanonly}" \
+                         "latexonly={@latexonly}" \
+                         "endlatexonly={@endlatexonly}" \
+                         "xmlonly={@xmlonly}" \
+                         "endxmlonly={@endxmlonly}" \
+                         "link={@link}" \
+                         "b={@b}" \
+                         "i={@i}" \
+                         "section{1}{@section}" \
+                         "subsection{1}{@subsection}" \
+                         "subsubsection{1}{@subsubsection}" \
+                         "paragraph{1}{@paragraph}" \
+                         "subparagraph{1}{@subparagraph}" \
+                         "anchor={@anchor}" \
+                         "copyright={@copyright}" \
+                         "overload={@overload}" \
+                         "namespace={@namespace}" \
+                         "struct={@struct}" \
+                         "class={@class}" \
+                         "interface={@interface}" \
+                         "typedef={@typedef}" \
+                         "exception={@exception}" \
+                         "file={@file}" \
+                         "dir={@dir}" \
+                         "page={@page}" \
+                         "section{1}{@section}" \
+                         "subsection{1}{@subsection}" \
+                         "subsubsection{1=@subsubsection}" \
+                         "paragraph{1=@paragraph}" \
+                         "include={@include}" \
+                         "dontinclude={@dontinclude}" \
+                         "verbinclude={@verbinclude}" \
+                         "copydoc={@copydoc}" \
+                         "skip={@skip}" \
+                         "until={@until}" \
+                         "skipline={@skipline}" \
+                         "line={@line}" \
+                         "parse={@parse}" \
+                         "showdate={@showdate}" \
+                         "hidecallgraph={@hidecallgraph}" \
+                         "hidecallergraph={@hidecallergraph}" \
+                         "hideinheritancegraph={@hideinheritancegraph}" \
+                         "hidecallergraph={@hidecallergraph}" \
+                         "hidecallgraph={@hidecallgraph}" \
+                         "internal={@internal}" \
+                         "nosubgrouping={@nosubgrouping}" \
+                         "reimp={@reimp}" \
+                         "implements={@implements}" \
+                         "memberof={@memberof}" \
+                         "private={@private}" \
+                         "protected={@protected}" \
+                         "public={@public}" \
+                         "virtual={@virtual}" \
+                         "static={@static}" \
+                         "inline={@inline}" \
+                         "override={@override}" \
+                         "final={@final}" \
+                         "abstract={@abstract}" \
+                         "sealed={@sealed}" \
+                         "ref={@ref}" \
+                         "out={@out}" \
+                         "in={@in}" \
+                         "inout={@inout}" \
+                         "nodiscard={@nodiscard}" \
+                         "maybe_unused={@maybe_unused}" \
+                         "deprecated={@deprecated}" \
+                         "fallthrough={@fallthrough}" \
+                         "likely={@likely}" \
+                         "unlikely={@unlikely}" \
+                         "nodiscard={@nodiscard}" \
+                         "constexpr={@constexpr}" \
+                         "noexcept={@noexcept}" \
+                         "override={@override}" \
+                         "final={@final}" \
+                         "volatile={@volatile}" \
+                         "mutable={@mutable}" \
+                         "transient={@transient}"
+
+# Tweak the output to be more modern
+OPTIMIZE_OUTPUT_FOR_C   = YES
+TYPEDEF_HIDES_STRUCT   = YES
+SYMBOL_CACHE_SIZE      = 0
+LOOKUP_CACHE_SIZE      = 0
+
+# -----------------------------------------------------------------
+# Build and Test Configuration
+# -----------------------------------------------------------------
+
+# Verbose output for debugging
+VERBATIM_HEADERS       = YES
+
+# -----------------------------------------------------------------
+# Project Information
+# -----------------------------------------------------------------
+
+# Author and copyright
+PROJECT_COPYRIGHT      = "© 2025 Zackor, LLC. All Rights Reserved."
+PROJECT_BRIEF          = "Aimux v2.0.0 - Intelligent AI Model Provider Router with Automatic Failover"
+
+# -----------------------------------------------------------------
+# Customization for Modern Web Output
+# -----------------------------------------------------------------
+
+# Use modern browsers features
+HTML_COLORSTYLE        = LIGHT
+HTML_DYNAMIC_SECTIONS  = YES
+GENERATE_DOCSET        = NO
+GENERATE_CHI           = NO
+GENERATE_DOCBOOK       = NO
+DOCBOOK_OUTPUT         = docbook
+DOCBOOK_PROGRAMLISTING = NO
+
+# -----------------------------------------------------------------
+# Quality Metrics
+# -----------------------------------------------------------------
+
+# Documentation quality metrics
+SHOW_INCLUDE_FILES     = YES
+SHOW_FILES             = YES
+SHOW_NAMESPACES        = YES
+SHOW_USED_FILES        = YES
+SHOW_DIRECTORIES       = YES
+
+# sorting and grouping
+SORT_INTERNAL_DOCS     = YES
+SORT_MEMBER_DOCS       = YES
+SORT_BRIEF_DOCS        = NO
+SORT_BY_SCOPE_NAME     = YES
+STRICT_PROTO_MATCHING  = NO
+GENERATE_TODOLIST      = YES
+GENERATE_TESTLIST      = YES
+GENERATE_BUGLIST       = YES
+GENERATE_DEPRECATEDLIST = YES
+
+# -----------------------------------------------------------------
+# Statistics and References
+# -----------------------------------------------------------------
+
+# Reference tracking
+SHOW_GROUPED_MEMB_INC  = NO
+INLINE_INHERITED_MEMB  = NO
+FULL_PATH_NAMES        = YES
+STRIP_FROM_PATH        =
+STRIP_FROM_INC_PATH    =
+SHORT_NAMES            = NO
+JAVADOC_AUTOBRIEF      = NO
+QT_AUTOBRIEF           = NO
+MULTILINE_CPP_IS_BRIEF = NO
+INHERIT_DOCS           = YES
+SEPARATE_MEMBER_PAGES  = NO
+TAB_SIZE               = 4
+BRIEF_MEMBER_DESC      = YES
+REPEAT_BRIEF           = YES
+ALWAYS_DETAILED_SEC    = NO
+INLINE_INHERITED_MEMB  = NO
+FULL_PATH_NAMES        = YES
+STRIP_FROM_PATH        =
+STRIP_FROM_INC_PATH    =
+
+# -----------------------------------------------------------------
+# Miscellaneous Options
+# -----------------------------------------------------------------
+
+SUBGROUPING            = YES
+INLINE_GROUPED_CLASSES = NO
+INLINE_SIMPLE_STRUCTS  = NO
+TYPEDEF_HIDES_STRUCT   = YES
+LOOKUP_CACHE_SIZE      = 0
+NUM_PROC_THREADS       = 1

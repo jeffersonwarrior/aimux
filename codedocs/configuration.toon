@@ -1,0 +1,393 @@
+# Aimux v2.0 Configuration Documentation
+
+CONFIGURATION_ARCHITECTURE
+    Centralized_Management = "JSON-based configuration with validation"
+    Environment_Specific = "Development/Staging/Production profiles"
+    Hot_Reload_Capable = "Runtime configuration updates"
+    Security_First = "Encrypted sensitive data storage"
+    Schema_Validation = "Zod-style validation in C++
+
+CONFIGURATION_TYPES
+    System_Configuration
+        environment      = "string (development/staging/production)"
+        log_level        = "string (trace/debug/info/warn/error/fatal)"
+        structured_logging = "boolean (default: true)"
+        max_concurrent_requests = "integer (default: 1000)"
+        shutdown_timeout_seconds = "integer (default: 30)"
+
+    Security_Configuration
+        api_key_encryption = "boolean (default: true)"
+        rate_limiting    = "boolean (default: true)"
+        ssl_verification = "boolean (default: true)"
+        input_validation = "boolean (default: true)"
+        audit_logging    = "boolean (default: true)"
+        session_timeout_minutes = "integer (default: 60)"
+
+    Monitoring_Configuration
+        metrics_collection = "boolean (default: true)"
+        health_checks    = "boolean (default: true)"
+        performance_alerts = "boolean (default: true)"
+        dashboard_enabled = "boolean (default: true)"
+        alert_thresholds
+            max_response_time_ms = "integer (default: 1000)"
+            min_success_rate    = "float (default: 0.99)"
+            max_error_rate      = "float (default: 0.01)"
+
+    Gateway_Configuration
+        anthropic_port   = "integer (default: 8080)"
+        openai_port      = "integer (default: 8081)"
+        bind_address     = "string (default: "0.0.0.0")"
+        enable_format_transformation = "boolean (default: true)"
+        auto_detect_format = "boolean (default: true)"
+        preserve_headers = "boolean (default: true)"
+        connection_timeout_ms = "integer (default: 30000)"
+        max_concurrent_requests = "integer (default: 100)"
+
+    Caching_Configuration
+        enable_request_caching = "boolean (default: false)"
+        cache_max_entries = "integer (default: 1000)"
+        cache_max_memory_mb = "integer (default: 100)"
+        cache_default_ttl_minutes = "integer (default: 5)"
+        cache_max_ttl_minutes = "integer (default: 60)"
+        cache_hit_rate_threshold = "float (default: 0.7)"
+
+PROVIDER_CONFIGURATION
+    Provider_Template
+        name            = "string (unique identifier)"
+        enabled        = "boolean (default: false)"
+        api_key        = "string (encrypted at rest)"
+        endpoint       = "string (HTTPS URL)"
+        timeout_ms     = "integer (default: 30000)"
+        retry_attempts = "integer (default: 3)"
+        priority       = "integer (lower = higher priority)"
+        max_requests_per_minute = "integer"
+        models         = "array of strings"
+        headers        = "object (custom headers)"
+
+    Claude_Provider_Config
+        claude
+            enabled        = true
+            api_key        = "sk-ant-encrypted-..."
+            endpoint       = "https://api.anthropic.com"
+            timeout_ms     = 25000
+            retry_attempts = 3
+            priority       = 1
+            max_requests_per_minute = 50
+            models         = ["claude-3-5-sonnet-20241022", "claude-3-opus-20240229"]
+            headers        = {"anthropic-version": "2023-06-01"}
+
+    ZAI_Provider_Config
+        zai
+            enabled        = true
+            api_key        = "85c99bec0fa64a0d8a4a01463868667a.RsDzW0iuxtgvYqd2"
+            endpoint       = "https://api.z.ai/api/paas/v4"
+            timeout_ms     = 30000
+            retry_attempts = 3
+            priority       = 2
+            max_requests_per_minute = 200
+            models         = ["claude-3-5-sonnet-20241022", "gpt-4"]
+
+    Synthetic_Provider_Config
+        synthetic
+            enabled        = false
+            api_key        = "synthetic-test-key"
+            endpoint       = "http://localhost:9999"
+            timeout_ms     = 5000
+            priority       = 10
+            response_delay_ms = 100
+            error_rate_simulation = 0.0
+
+LOAD_BALANCING_CONFIGURATION
+    Load_Balancing_Settings
+        strategy        = "string (ROUND_ROBIN/LEAST_CONNECTIONS/FASTEST_RESPONSE/WEIGHTED_ROUND_ROBIN/ADAPTIVE/RANDOM)"
+        health_check_interval_seconds = "integer (default: 30)"
+        failover_enabled = "boolean (default: true)"
+        retry_on_failure = "boolean (default: true)"
+        circuit_breaker
+            enabled          = "boolean (default: true)"
+            failure_threshold = "integer (default: 5)"
+            recovery_timeout_seconds = "integer (default: 60)"
+            half_open_max_requests = "integer (default: 3)"
+
+    Strategy_Specific_Config
+        weighted_round_robin
+            cerebras_weight = "integer (default: 3)"
+            zai_weight      = "integer (default: 2)"
+            synthetic_weight = "integer (default: 1)"
+
+        adaptive
+            learning_rate   = "float (default: 0.1)"
+            history_window_minutes = "integer (default: 10)"
+            min_sample_size = "integer (default: 50)"
+
+DEPLOYMENT_PROFILES
+    Development_Profile
+        system
+            environment     = "development"
+            log_level       = "debug"
+            structured_logging = false
+            max_concurrent_requests = 100
+
+        security
+            ssl_verification = false
+            input_validation = true
+            audit_logging    = false
+
+        monitoring
+            metrics_collection = true
+            health_checks    = true
+            performance_alerts = false
+
+        providers
+            synthetic_enabled = true
+            real_providers   = false
+
+    Production_Profile
+        system
+            environment     = "production"
+            log_level       = "warn"
+            structured_logging = true
+            max_concurrent_requests = 1000
+
+        security
+            ssl_verification = true
+            input_validation = true
+            audit_logging    = true
+
+        monitoring
+            metrics_collection = true
+            health_checks    = true
+            performance_alerts = true
+
+        providers
+            synthetic_enabled = false
+            real_providers   = true
+
+    Testing_Profile
+        system
+            environment     = "testing"
+            log_level       = "info"
+            max_concurrent_requests = 50
+
+        providers
+            synthetic_only   = true
+            mock_responses  = true
+
+CONFIGURATION_VALIDATION
+    Validation_Framework
+        StartupValidator_Class
+            header         = "include/aimux/config/startup_validator.hpp"
+            implementation  = "src/config/startup_validator.cpp"
+
+        Validation_Levels
+            CRITICAL        = "System startup abort"
+            WARNING         = "Log warning but continue"
+            INFO           = "Informational message"
+
+    Required_Fields
+        system.environment
+            validation      = "Must be one of: development, staging, production"
+            critical        = true
+
+        providers.{provider}.api_key
+            validation      = "Non-empty string, encrypted format"
+            critical        = true
+
+        providers.{provider}.endpoint
+            validation      = "Valid HTTPS URL"
+            critical        = true
+
+        providers.{provider}.enabled
+            validation      = "Boolean value"
+            critical        = false
+
+    Validation_Rules
+        url_validation   = "HTTPS required for production"
+        port_validation  = "Ports 1024-65535, no conflicts"
+        api_key_format   = "Encrypted format validation"
+        model_validation  = "Supported model names only"
+        range_validation  = "Numeric bounds checking"
+
+CONFIGURATION_FILE_FORMAT
+    JSON_Structure
+        config.json
+            {
+                "system": {...},
+                "security": {...},
+                "monitoring": {...},
+                "gateway": {...},
+                "providers": {...},
+                "load_balancing": {...},
+                "caching": {...}
+            }
+
+    Environment_Override
+        AIMUX_ENVIRONMENT = "Override system.environment"
+        AIMUX_LOG_LEVEL = "Override system.log_level"
+        AIMUX_CONFIG_FILE = "Specify custom config file"
+        AIMUX_API_KEY_{PROVIDER} = "Override provider API key"
+
+    Command_Line_Overrides
+        --config        = "Custom config file path"
+        --log-level     = "Override logging level"
+        --foreground    = "Run in foreground mode"
+        --validate-config = "Validate and exit"
+
+HOT_RELOAD_MECHANISM
+    Configuration_Watcher
+        file_monitoring = "inotify on Linux, FSEvents on macOS"
+        reload_signal  = "SIGHUP for Unix systems"
+        api_endpoint   = "POST /config/reload"
+
+    Reload_Policy
+        validation_required = "Validate new configuration"
+        atomic_apply    = "Apply changes atomically"
+        rollback_on_error = "Revert to previous config"
+        no_downtime     = "Graceful service reload"
+
+    Reload_Events
+        provider_config_change = "Update provider settings"
+        load_balancing_change = "Switch load balancing strategy"
+        monitoring_config_change = "Adjust monitoring settings"
+        security_config_change = "Apply new security policies"
+
+SECURE_CONFIGURATION
+    Encrypted_Fields
+        api_keys        = "AES-256-GCM encryption"
+        database_credentials = "Future: Encrypted DB connections"
+        third_party_keys = "Future: External service keys"
+
+    Key_Management
+        master_key_derivation = "PBKDF2 with system salt"
+        key_rotation     = "Automatic rotation (default: 90 days)"
+        key_backup       = "Encrypted backup mechanism"
+        secure_disposal   = "Memory clearing after use"
+
+    Configuration_Security
+        file_permissions = "0600 (owner read/write only)"
+        group_ownership  = "aimux group"
+        audit_trail      = "Configuration change logging"
+        integrity_check  = "Cryptographic hash verification"
+
+CONFIGURATION_CLASSES
+    ProductionConfigManager
+        header         = "include/aimux/config/production_config.hpp"
+        implementation  = "src/config/production_config.cpp"
+        pattern        = "Singleton with thread safety"
+
+        Methods
+            getInstance
+                return_type = "ProductionConfigManager&"
+                static     = true
+                thread_safe = true
+
+            loadConfig
+                parameters  = ["string config_file", "bool create_if_missing"]
+                return_type = "bool"
+                throws      = "ConfigurationValidationError"
+
+            getConfig
+                return_type = "const Configuration&"
+                const       = true
+
+        Service_Management
+            installService
+                return_type = "bool"
+                description = "Install as system service"
+
+            getServiceStatus
+                return_type = "string"
+                description = "Get service status"
+
+    Configuration_Structures
+        Configuration
+            system_settings = "SystemConfig"
+            security_settings = "SecurityConfig"
+            monitoring_settings = "MonitoringConfig"
+            gateway_settings = "GatewayConfig"
+            provider_configs = "map<string, ProviderConfig>"
+            load_balancing_settings = "LoadBalancingConfig"
+            caching_settings = "CachingConfig"
+
+ENVIRONMENT_VARIABLES
+    Core_Variables
+        AIMUX_CONFIG_PATH = "/etc/aimux/config.json"
+        AIMUX_LOG_PATH    = "/var/log/aimux/"
+        AIMUX_DATA_PATH    = "/var/lib/aimux/"
+        AIMUX_RUN_PATH     = "/var/run/aimux/"
+
+    Security_Variables
+        AIMUX_MASTER_KEY = "Override master encryption key"
+        AIMUX_KEY_ROTATION_DAYS = "Key rotation interval"
+        AIMUX_ENCRYPTION_ALGORITHM = "Encryption algorithm (AES-256-GCM)"
+
+    Performance_Variables
+        AIMUX_WORKER_THREADS = "Worker thread count"
+        AIMUX_MAX_CONNECTIONS = "Max concurrent connections"
+        AIMUX_CACHE_SIZE_MB = "Cache size in megabytes"
+
+CONFIGURATION_TEMPLATES
+    Minimal_Config
+        {
+            "system": {
+                "environment": "production",
+                "log_level": "info"
+            },
+            "providers": {
+                "zai": {
+                    "enabled": true,
+                    "api_key": "encrypted-key",
+                    "endpoint": "https://api.z.ai/api/paas/v4"
+                }
+            },
+            "load_balancing": {
+                "strategy": "ROUND_ROBIN"
+            }
+        }
+
+    Full_Config
+        Complete configuration with all features enabled
+        Used for production deployment testing
+
+    Development_Config
+        {
+            "system": {
+                "environment": "development",
+                "log_level": "debug",
+                "structured_logging": false
+            },
+            "providers": {
+                "synthetic": {
+                    "enabled": true,
+                    "api_key": "test-key",
+                    "endpoint": "http://localhost:9999"
+                }
+            }
+        }
+
+VALIDATION_EXAMPLES
+    Validation_Errors
+        Missing_API_Key
+            error_level   = "CRITICAL"
+            message       = "Provider 'zai' missing required 'api_key' field"
+            field_path    = "providers.zai.api_key"
+            fix_action    = "Add encrypted API key to configuration"
+
+        Invalid_URL
+            error_level   = "CRITICAL"
+            message       = "Provider endpoint must use HTTPS in production"
+            field_path    = "providers.claude.endpoint"
+            fix_action    = "Change HTTP to HTTPS endpoint"
+
+        Port_Conflict
+            error_level   = "WARNING"
+            message       = "Gateway port 8080 may conflict with other service"
+            field_path    = "gateway.anthropic_port"
+            fix_action    = "Use alternative port or stop conflicting service"
+
+    Validation_Success
+        Configuration_Complete
+            status        = "VALID"
+            message       = "Configuration validated successfully"
+            warnings      = ["Optional field 'monitoring.alert_thresholds' missing"]
+            profile_match = "production"

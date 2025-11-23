@@ -1,0 +1,172 @@
+<!-- Provider Details Modal Component -->
+<div id="provider-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+    <div class="bg-gray-800 text-white rounded-lg p-6 max-w-2xl w-full mx-4">
+        <div class="flex justify-between items-center mb-4">
+            <h2 id="modal-title" class="text-xl font-bold">Provider Details</h2>
+            <button onclick="closeProviderModal()" class="text-gray-400 hover:text-white">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+        <div id="modal-content">
+            <!-- Provider details will be dynamically inserted here -->
+        </div>
+    </div>
+</div>
+
+<!-- Configuration Panel Component -->
+<div id="config-panel" class="fixed right-0 top-0 h-full w-96 bg-gray-800 text-white transform translate-x-full transition-transform duration-300 z-40">
+    <div class="p-6">
+        <div class="flex justify-between items-center mb-6">
+            <h3 class="text-lg font-bold">Configuration</h3>
+            <button onclick="toggleConfigPanel()" class="text-gray-400 hover:text-white">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+
+        <div class="space-y-4">
+            <div>
+                <label class="block text-sm font-medium mb-2">Auto Refresh</label>
+                <select id="refresh-interval" onchange="updateRefreshInterval()" class="w-full bg-gray-700 rounded px-3 py-2">
+                    <option value="1000">1 second</option>
+                    <option value="5000" selected>5 seconds</option>
+                    <option value="10000">10 seconds</option>
+                    <option value="30000">30 seconds</option>
+                    <option value="0">Disabled</option>
+                </select>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium mb-2">Chart Type</label>
+                <select id="chart-type" onchange="updateChartType()" class="w-full bg-gray-700 rounded px-3 py-2">
+                    <option value="line">Line Chart</option>
+                    <option value="bar">Bar Chart</option>
+                    <option value="area">Area Chart</option>
+                </select>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium mb-2">Theme</label>
+                <select id="theme-selector" onchange="updateTheme()" class="w-full bg-gray-700 rounded px-3 py-2">
+                    <option value="dark" selected>Dark</option>
+                    <option value="light">Light</option>
+                    <option value="auto">Auto</option>
+                </select>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Settings Button -->
+<button onclick="toggleConfigPanel()" class="fixed right-4 bottom-4 bg-blue-600 hover:bg-blue-700 text-white rounded-full p-3 shadow-lg z-30">
+    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+    </svg>
+</button>
+
+<script>
+// Component JavaScript functions
+function closeProviderModal() {
+    document.getElementById('provider-modal').classList.add('hidden');
+}
+
+function toggleConfigPanel() {
+    const panel = document.getElementById('config-panel');
+    panel.classList.toggle('translate-x-full');
+}
+
+function updateRefreshInterval() {
+    const interval = parseInt(document.getElementById('refresh-interval').value);
+    if (window.dashboard) {
+        window.dashboard.setRefreshInterval(interval);
+    }
+}
+
+function updateChartType() {
+    const chartType = document.getElementById('chart-type').value;
+    if (window.dashboard) {
+        window.dashboard.setChartType(chartType);
+    }
+}
+
+function updateTheme() {
+    const theme = document.getElementById('theme-selector').value;
+    if (window.dashboard) {
+        window.dashboard.setTheme(theme);
+    }
+}
+
+// Show provider details modal
+function showProviderDetails(providerId) {
+    const modal = document.getElementById('provider-modal');
+    const title = document.getElementById('modal-title');
+    const content = document.getElementById('modal-content');
+
+    // Fetch detailed provider data
+    fetch(`/api/providers/${providerId}`)
+        .then(response => response.json())
+        .then(provider => {
+            title.textContent = `${provider.name} Details`;
+            content.innerHTML = `
+                <div class="space-y-4">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <h4 class="font-semibold mb-2">Status</h4>
+                            <span class="px-2 py-1 rounded ${getStatusBadgeClass(provider.status)}">${provider.status}</span>
+                        </div>
+                        <div>
+                            <h4 class="font-semibold mb-2">Endpoint</h4>
+                            <p class="text-sm text-gray-400">${provider.endpoint || 'N/A'}</p>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <h4 class="font-semibold mb-2">Total Requests</h4>
+                            <p class="text-2xl font-bold">${provider.requests || 0}</p>
+                        </div>
+                        <div>
+                            <h4 class="font-semibold mb-2">Success Rate</h4>
+                            <p class="text-2xl font-bold">${provider.successRate || 100}%</p>
+                        </div>
+                    </div>
+
+                    <div>
+                        <h4 class="font-semibold mb-2">Rate Limit Status</h4>
+                        <div class="bg-gray-700 rounded p-3">
+                            <div class="flex justify-between mb-1">
+                                <span>Requests Made:</span>
+                                <span>${provider.rateLimit?.requests_made || 0}</span>
+                            </div>
+                            <div class="flex justify-between mb-1">
+                                <span>Max per Minute:</span>
+                                <span>${provider.rateLimit?.max_requests_per_minute || 0}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span>Remaining:</span>
+                                <span>${provider.rateLimit?.requests_remaining || 0}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <h4 class="font-semibold mb-2">Available Models</h4>
+                        <div class="flex flex-wrap gap-2">
+                            ${provider.models?.map(model =>
+                                `<span class="bg-gray-700 px-2 py-1 rounded text-sm">${model}</span>`
+                            ).join('') || 'No models configured'}
+                        </div>
+                    </div>
+                </div>
+            `;
+            modal.classList.remove('hidden');
+        })
+        .catch(error => {
+            console.error('Failed to fetch provider details:', error);
+        });
+}
+</script>
