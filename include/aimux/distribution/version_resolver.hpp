@@ -58,6 +58,7 @@ public:
         int number = 0;
 
         bool operator<(const PrereleaseComponent& other) const;
+        bool operator>(const PrereleaseComponent& other) const;
         bool operator==(const PrereleaseComponent& other) const;
     };
 

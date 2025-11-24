@@ -156,6 +156,10 @@ private:
     crow::response handle_crow_test_provider(const std::string& body);
     crow::response handle_crow_api_info();
 
+    // Prettifier API endpoints (Phase 3.4)
+    crow::response handle_crow_get_prettifier_status();
+    crow::response handle_crow_update_prettifier_config(const std::string& body);
+
     // Original handlers (kept for backwards compatibility)
     HttpResponse handle_root();
     HttpResponse handle_metrics();

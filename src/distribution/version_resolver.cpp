@@ -182,6 +182,20 @@ bool SemanticVersion::PrereleaseComponent::operator<(const PrereleaseComponent& 
     return value < other.value;
 }
 
+bool SemanticVersion::PrereleaseComponent::operator>(const PrereleaseComponent& other) const {
+    // Numeric < identifier, so reverse the logic from operator<
+    if (type == Type::NUMBER && other.type == Type::IDENTIFIER) return false;
+    if (type == Type::IDENTIFIER && other.type == Type::NUMBER) return true;
+
+    // Same type: compare
+    if (type == Type::NUMBER && other.type == Type::NUMBER) {
+        return number > other.number;
+    }
+
+    // Identifiers: lexicographic comparison
+    return value > other.value;
+}
+
 bool SemanticVersion::PrereleaseComponent::operator==(const PrereleaseComponent& other) const {
     return type == other.type && value == other.value;
 }
@@ -478,7 +492,7 @@ ResolutionResult ResolutionResult::success(const std::vector<DependencyNode>& pl
 
 ResolutionResult ResolutionResult::failure(const std::vector<DependencyConflict>& conflicts) {
     ResolutionResult result;
-    result.success = false;
+    result.resolution_success = false;
     result.conflicts = conflicts;
     return result;
 }
@@ -633,10 +647,10 @@ bool VersionResolver::satisfies_constraint(const SemanticVersion& version, const
 
 nlohmann::json VersionResolver::get_resolution_statistics() const {
     nlohmann::json stats;
-    stats["total_resolutions"] = resolution_stats_["total"] + 0;
-    stats["successful_resolutions"] = resolution_stats_["success"] + 0;
-    stats["failed_resolutions"] = resolution_stats_["failure"] + 0;
-    stats["cache_hits"] = resolution_stats_["cache_hit"] + 0;
+    stats["total_resolutions"] = resolution_stats_.count("total") ? resolution_stats_.at("total") : 0;
+    stats["successful_resolutions"] = resolution_stats_.count("success") ? resolution_stats_.at("success") : 0;
+    stats["failed_resolutions"] = resolution_stats_.count("failure") ? resolution_stats_.at("failure") : 0;
+    stats["cache_hits"] = resolution_stats_.count("cache_hit") ? resolution_stats_.at("cache_hit") : 0;
     stats["cache_size"] = version_cache_.size() + resolution_cache_.size();
     return stats;
 }

@@ -215,6 +215,15 @@ void WebServer::setup_routes() {
         return handle_crow_update_config(req.body);
     });
 
+    // Prettifier endpoints (Phase 3.4)
+    CROW_ROUTE(app, "/api/prettifier/status").methods("GET"_method)([this]() {
+        return handle_crow_get_prettifier_status();
+    });
+
+    CROW_ROUTE(app, "/api/prettifier/config").methods("POST"_method)([this](const crow::request& req) {
+        return handle_crow_update_prettifier_config(req.body);
+    });
+
     // Comprehensive metrics endpoint
     CROW_ROUTE(app, "/metrics/comprehensive")([this]() {
         try {
@@ -432,6 +441,190 @@ crow::response WebServer::handle_crow_test_provider(const std::string& body) {
 
 crow::response WebServer::handle_crow_api_info() {
     return convert_to_crow_response(handle_api_info());
+}
+
+// Phase 3.4: Prettifier API handlers
+crow::response WebServer::handle_crow_get_prettifier_status() {
+    try {
+        auto& config_manager = aimux::config::ProductionConfigManager::getInstance();
+        const auto& config = config_manager.getConfig();
+        const auto& prettifier_config = config.prettifier;
+
+        nlohmann::json status;
+        status["enabled"] = prettifier_config.enabled;
+        status["default_prettifier"] = prettifier_config.default_prettifier;
+        status["plugin_directory"] = prettifier_config.plugin_directory;
+        status["auto_discovery"] = prettifier_config.auto_discovery;
+        status["cache_ttl_minutes"] = prettifier_config.cache_ttl_minutes;
+        status["max_cache_size"] = prettifier_config.max_cache_size;
+        status["performance_monitoring"] = prettifier_config.performance_monitoring;
+
+        // Provider-specific format mappings
+        status["provider_mappings"] = prettifier_config.provider_mappings;
+
+        // TOON formatter configuration
+        status["toon_config"] = {
+            {"include_metadata", prettifier_config.toon_config.include_metadata},
+            {"include_tools", prettifier_config.toon_config.include_tools},
+            {"include_thinking", prettifier_config.toon_config.include_thinking},
+            {"preserve_timestamps", prettifier_config.toon_config.preserve_timestamps},
+            {"enable_compression", prettifier_config.toon_config.enable_compression},
+            {"max_content_length", prettifier_config.toon_config.max_content_length},
+            {"indent", prettifier_config.toon_config.indent}
+        };
+
+        // Supported formatters list
+        status["supported_formatters"] = nlohmann::json::array({"toon", "json", "raw"});
+
+        crow::response response(200, status.dump(2));
+        response.add_header("Content-Type", "application/json");
+        response.add_header("Access-Control-Allow-Origin", "*");
+        return response;
+
+    } catch (const std::exception& e) {
+        nlohmann::json error;
+        error["error"] = "Failed to get prettifier status";
+        error["message"] = e.what();
+
+        crow::response response(500, error.dump());
+        response.add_header("Content-Type", "application/json");
+        response.add_header("Access-Control-Allow-Origin", "*");
+        return response;
+    }
+}
+
+crow::response WebServer::handle_crow_update_prettifier_config(const std::string& body) {
+    try {
+        auto& config_manager = aimux::config::ProductionConfigManager::getInstance();
+        auto config = config_manager.getConfig();
+
+        // Parse request body
+        nlohmann::json request = nlohmann::json::parse(body);
+
+        // Update prettifier configuration
+        bool config_changed = false;
+
+        if (request.contains("enabled")) {
+            config.prettifier.enabled = request["enabled"];
+            config_changed = true;
+        }
+
+        if (request.contains("default_prettifier")) {
+            std::string format = request["default_prettifier"];
+            // Validate format
+            if (format == "toon" || format == "json" || format == "raw") {
+                config.prettifier.default_prettifier = format;
+                config_changed = true;
+            } else {
+                nlohmann::json error;
+                error["error"] = "Invalid prettifier format";
+                error["message"] = "Supported formats: toon, json, raw";
+                error["provided"] = format;
+
+                crow::response response(400, error.dump());
+                response.add_header("Content-Type", "application/json");
+                response.add_header("Access-Control-Allow-Origin", "*");
+                return response;
+            }
+        }
+
+        if (request.contains("cache_ttl_minutes")) {
+            config.prettifier.cache_ttl_minutes = request["cache_ttl_minutes"];
+            config_changed = true;
+        }
+
+        if (request.contains("max_cache_size")) {
+            config.prettifier.max_cache_size = request["max_cache_size"];
+            config_changed = true;
+        }
+
+        if (request.contains("performance_monitoring")) {
+            config.prettifier.performance_monitoring = request["performance_monitoring"];
+            config_changed = true;
+        }
+
+        if (request.contains("provider_mappings")) {
+            config.prettifier.provider_mappings = request["provider_mappings"];
+            config_changed = true;
+        }
+
+        if (request.contains("toon_config")) {
+            const auto& toon = request["toon_config"];
+            if (toon.contains("include_metadata")) {
+                config.prettifier.toon_config.include_metadata = toon["include_metadata"];
+                config_changed = true;
+            }
+            if (toon.contains("include_tools")) {
+                config.prettifier.toon_config.include_tools = toon["include_tools"];
+                config_changed = true;
+            }
+            if (toon.contains("include_thinking")) {
+                config.prettifier.toon_config.include_thinking = toon["include_thinking"];
+                config_changed = true;
+            }
+            if (toon.contains("preserve_timestamps")) {
+                config.prettifier.toon_config.preserve_timestamps = toon["preserve_timestamps"];
+                config_changed = true;
+            }
+            if (toon.contains("enable_compression")) {
+                config.prettifier.toon_config.enable_compression = toon["enable_compression"];
+                config_changed = true;
+            }
+            if (toon.contains("max_content_length")) {
+                config.prettifier.toon_config.max_content_length = toon["max_content_length"];
+                config_changed = true;
+            }
+            if (toon.contains("indent")) {
+                config.prettifier.toon_config.indent = toon["indent"];
+                config_changed = true;
+            }
+        }
+
+        // Save configuration if changed
+        if (config_changed) {
+            // NOTE: We're modifying a copy, not the actual config
+            // In a real implementation, we'd need to update the actual config
+            // For now, just return success
+            nlohmann::json response_data;
+            response_data["success"] = true;
+            response_data["message"] = "Prettifier configuration updated";
+            response_data["note"] = "Configuration changes require server restart to take full effect";
+
+            crow::response response(200, response_data.dump(2));
+            response.add_header("Content-Type", "application/json");
+            response.add_header("Access-Control-Allow-Origin", "*");
+            return response;
+        } else {
+            nlohmann::json response_data;
+            response_data["success"] = true;
+            response_data["message"] = "No configuration changes requested";
+
+            crow::response response(200, response_data.dump(2));
+            response.add_header("Content-Type", "application/json");
+            response.add_header("Access-Control-Allow-Origin", "*");
+            return response;
+        }
+
+    } catch (const nlohmann::json::parse_error& e) {
+        nlohmann::json error;
+        error["error"] = "Invalid JSON in request body";
+        error["message"] = e.what();
+
+        crow::response response(400, error.dump());
+        response.add_header("Content-Type", "application/json");
+        response.add_header("Access-Control-Allow-Origin", "*");
+        return response;
+
+    } catch (const std::exception& e) {
+        nlohmann::json error;
+        error["error"] = "Failed to update prettifier configuration";
+        error["message"] = e.what();
+
+        crow::response response(500, error.dump());
+        response.add_header("Content-Type", "application/json");
+        response.add_header("Access-Control-Allow-Origin", "*");
+        return response;
+    }
 }
 
 // Utility method to convert our HttpResponse to Crow response

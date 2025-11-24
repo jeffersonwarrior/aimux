@@ -57,8 +57,8 @@ if(NOT nlohmann_json_FOUND)
 endif()
 # Force manual CURL configuration
 set(CURL_FOUND TRUE)
-set(CURL_INCLUDE_DIRS "/usr/include/x86_64-linux-gnu")
-set(CURL_LIBRARIES "/usr/lib/x86_64-linux-gnu/libcurl.so")
+set(CURL_INCLUDE_DIRS "/usr/include")
+set(CURL_LIBRARIES "/usr/lib/libcurl.so")
 set(CURL_VERSION_STRING "8.5.0")
 add_library(CURL::libcurl SHARED IMPORTED)
 set_target_properties(CURL::libcurl PROPERTIES
@@ -66,9 +66,9 @@ set_target_properties(CURL::libcurl PROPERTIES
     IMPORTED_LOCATION "${CURL_LIBRARIES}")
 # Force manual OpenSSL configuration
 set(OPENSSL_FOUND TRUE)
-set(OPENSSL_INCLUDE_DIR "/usr/include/openssl")
-set(OPENSSL_SSL_LIBRARY "/usr/lib/x86_64-linux-gnu/libssl.so")
-set(OPENSSL_CRYPTO_LIBRARY "/usr/lib/x86_64-linux-gnu/libcrypto.so")
+set(OPENSSL_INCLUDE_DIR "/usr/include")
+set(OPENSSL_SSL_LIBRARY "/usr/lib/libssl.so")
+set(OPENSSL_CRYPTO_LIBRARY "/usr/lib/libcrypto.so")
 set(OPENSSL_LIBRARIES "${OPENSSL_SSL_LIBRARY} ${OPENSSL_CRYPTO_LIBRARY}")
 set(OPENSSL_INCLUDE_DIRS "${OPENSSL_INCLUDE_DIR}")
 add_library(OpenSSL::SSL SHARED IMPORTED)
@@ -933,6 +933,32 @@ target_compile_options(integration_tests PRIVATE
     $<$<CXX_COMPILER_ID:GNU>:-Wall -Wextra -Wno-unused-parameter>
 )
 
+# Create Phase 3.1 prettifier pipeline integration test
+add_executable(phase3_prettifier_pipeline_test
+    tests/integration/phase3_prettifier_pipeline_test.cpp
+    ${PRETTIFIER_SOURCES}
+    ${LOGGING_SOURCES}
+)
+
+target_link_libraries(phase3_prettifier_pipeline_test
+    nlohmann_json::nlohmann_json
+    Threads::Threads
+    GTest::gtest
+    GTest::gtest_main
+    GTest::gmock
+    GTest::gmock_main
+)
+
+target_include_directories(phase3_prettifier_pipeline_test PRIVATE
+    include
+    ${GTEST_INCLUDE_DIRS}
+)
+
+target_compile_options(phase3_prettifier_pipeline_test PRIVATE
+    $<$<CXX_COMPILER_ID:Clang>:-Wall -Wextra -Wno-unused-parameter>
+    $<$<CXX_COMPILER_ID:GNU>:-Wall -Wextra -Wno-unused-parameter>
+)
+
 # Test targets for easy execution
 add_custom_target(test_unit
     COMMAND unit_tests
@@ -960,6 +986,13 @@ add_custom_target(test_integration
     DEPENDS integration_tests
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
     COMMENT "Running integration tests"
+)
+
+add_custom_target(test_phase3
+    COMMAND phase3_prettifier_pipeline_test
+    DEPENDS phase3_prettifier_pipeline_test
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+    COMMENT "Running Phase 3.1 prettifier pipeline integration tests"
 )
 
 add_custom_target(test_advanced

@@ -192,6 +192,31 @@ void ProductionConfigManager::loadEnvironmentOverrides() {
         }
     }
 
+    // Prettifier overrides
+    if (auto envEnabled = env::getBool("AIMUX_PRETTIFIER_ENABLED")) {
+        config_.prettifier.enabled = *envEnabled;
+    }
+
+    if (auto envFormat = env::getString("AIMUX_OUTPUT_FORMAT")) {
+        config_.prettifier.default_prettifier = *envFormat;
+    }
+
+    if (auto envPluginDir = env::getString("AIMUX_PRETTIFIER_PLUGIN_DIR")) {
+        config_.prettifier.plugin_directory = *envPluginDir;
+    }
+
+    if (auto envCacheTTL = env::getInt("AIMUX_PRETTIFIER_CACHE_TTL")) {
+        config_.prettifier.cache_ttl_minutes = *envCacheTTL;
+    }
+
+    if (auto envCacheSize = env::getInt("AIMUX_PRETTIFIER_MAX_CACHE_SIZE")) {
+        config_.prettifier.max_cache_size = static_cast<size_t>(*envCacheSize);
+    }
+
+    if (auto envPerfMon = env::getBool("AIMUX_PRETTIFIER_PERF_MONITORING")) {
+        config_.prettifier.performance_monitoring = *envPerfMon;
+    }
+
     AIMUX_DEBUG("Applied environment overrides");
 }
 
