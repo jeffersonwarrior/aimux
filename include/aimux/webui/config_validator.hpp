@@ -53,9 +53,10 @@ public:
      * including individual field validation and cross-field compatibility checks.
      *
      * @param config JSON configuration object to validate
+     * @param allow_static_mode If true, relaxes validation for static mode configs
      * @return ValidationResult indicating success or failure with details
      */
-    ValidationResult validate_config(const nlohmann::json& config);
+    ValidationResult validate_config(const nlohmann::json& config, bool allow_static_mode = true);
 
     /**
      * @brief Validate buffer size parameter

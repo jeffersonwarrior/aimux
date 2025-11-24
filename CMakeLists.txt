@@ -182,6 +182,7 @@ set(WEBUI_SOURCES
     src/webui/resource_loader.cpp
     src/webui/prettifier_api.cpp
     src/webui/config_validator.cpp
+    src/webui/first_run_config.cpp
 )
 set(NETWORK_SOURCES
     src/network/http_client.cpp
@@ -1099,6 +1100,31 @@ target_include_directories(v2_2_config_validator_test PRIVATE
 )
 
 target_compile_options(v2_2_config_validator_test PRIVATE
+    $<$<CXX_COMPILER_ID:Clang>:-Wall -Wextra -Wno-unused-parameter>
+    $<$<CXX_COMPILER_ID:GNU>:-Wall -Wextra -Wno-unused-parameter>
+)
+
+# v3.0 WebUI First Run Initialization Test
+add_executable(webui_first_run_init_test
+    test/webui_first_run_init_test.cpp
+    ${WEBUI_SOURCES}
+    ${LOGGING_SOURCES}
+)
+
+target_link_libraries(webui_first_run_init_test
+    nlohmann_json::nlohmann_json
+    Crow::Crow
+    Threads::Threads
+    GTest::gtest
+    GTest::gmock
+)
+
+target_include_directories(webui_first_run_init_test PRIVATE
+    include
+    ${GTEST_INCLUDE_DIRS}
+)
+
+target_compile_options(webui_first_run_init_test PRIVATE
     $<$<CXX_COMPILER_ID:Clang>:-Wall -Wextra -Wno-unused-parameter>
     $<$<CXX_COMPILER_ID:GNU>:-Wall -Wextra -Wno-unused-parameter>
 )

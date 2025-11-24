@@ -4,11 +4,13 @@
 #include <thread>
 #include <chrono>
 #include <map>
+#include <filesystem>
 #include "aimux/core/router.hpp"
 #include "aimux/logging/logger.hpp"
 #include "aimux/daemon/daemon.hpp"
 #include "aimux/providers/provider_impl.hpp"
 #include "aimux/webui/web_server.hpp"
+#include "aimux/webui/first_run_config.hpp"
 #include "aimux/cli/migrate.hpp"
 #include "config/production_config.h"
 #include "aimux/config/startup_validator.hpp"
@@ -1141,6 +1143,24 @@ void initialize_models(bool skip_validation = false) {
 void perform_critical_startup_validation(const std::string& config_file) {
     try {
         std::cout << "\n🔒 Performing Critical Configuration Validation...\n";
+
+        // Check if config file exists - if not, create default (first-run)
+        if (!std::filesystem::exists(config_file)) {
+            std::cout << "⚠️  Configuration file not found: " << config_file << "\n";
+            std::cout << "🔧 First run detected - initializing default configuration...\n";
+
+            // Create default config using FirstRunConfigGenerator
+            auto default_config = webui::FirstRunConfigGenerator::load_or_create_config(config_file);
+
+            if (webui::FirstRunConfigGenerator::is_static_mode(default_config)) {
+                std::cout << "✅ Default configuration created in STATIC MODE\n";
+                std::cout << "📝 WebUI will start but API calls are disabled\n";
+                std::cout << "💡 Please edit " << config_file << " and add real API keys\n";
+                std::cout << "💡 Then change mode from 'static' to 'operational'\n\n";
+                // In static mode, we allow startup with dummy keys
+                return;
+            }
+        }
 
         // Load and validate configuration with abort-on-fail behavior
         auto& config_manager = aimux::config::ProductionConfigManager::getInstance();

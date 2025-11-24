@@ -4,9 +4,11 @@
  */
 
 #include "aimux/webui/config_validator.hpp"
+#include "aimux/webui/first_run_config.hpp"
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
+#include <iostream>
 
 namespace aimux {
 namespace webui {
@@ -152,7 +154,8 @@ ConfigValidator::ValidationResult ConfigValidator::validate_compatibility(const 
 // Full Configuration Validation
 // =============================================================================
 
-ConfigValidator::ValidationResult ConfigValidator::validate_config(const nlohmann::json& config) {
+ConfigValidator::ValidationResult ConfigValidator::validate_config(const nlohmann::json& config,
+                                                                   bool allow_static_mode) {
     // Handle null or non-object config
     if (config.is_null()) {
         return ValidationResult(false, "Configuration cannot be null", "");
@@ -164,6 +167,19 @@ ConfigValidator::ValidationResult ConfigValidator::validate_config(const nlohman
 
     // Empty config is valid (no changes)
     if (config.empty()) {
+        return ValidationResult(true);
+    }
+
+    // Check if in static mode
+    bool is_static = allow_static_mode && FirstRunConfigGenerator::is_static_mode(config);
+    if (is_static) {
+        std::cout << "Config validation: Static mode detected - relaxing validation rules" << std::endl;
+        // In static mode, we allow dummy API keys and disabled providers
+        // Just validate basic structure
+        if (config.contains("providers") && !config["providers"].is_array()) {
+            return ValidationResult(false, "providers must be an array", "providers");
+        }
+        // Static mode configs always pass validation
         return ValidationResult(true);
     }
 
