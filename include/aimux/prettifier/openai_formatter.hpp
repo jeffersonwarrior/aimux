@@ -64,7 +64,7 @@ public:
      * response formats. Sets up pattern recognition for function calls, structured outputs,
      * and legacy compatibility modes.
      */
-    OpenAIFormatter();
+    OpenAIFormatter(const std::string& model_name = "");
 
     /**
      * @brief Destructor
@@ -274,6 +274,14 @@ public:
     nlohmann::json get_diagnostics() const override;
 
 private:
+    /**
+     * @brief Get default model from global config
+     */
+    static std::string get_default_model();
+
+    // Model configuration
+    std::string model_name_;
+
     // Configuration settings
     bool support_legacy_formats_ = true;
     bool strict_function_validation_ = true;

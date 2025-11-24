@@ -1,4 +1,6 @@
 #include "aimux/prettifier/cerebras_formatter.hpp"
+#include "aimux/core/model_registry.hpp"
+#include <map>
 #include <regex>
 #include <sstream>
 #include <chrono>
@@ -8,6 +10,14 @@
 // TODO: Replace with proper logging when available
 #define LOG_ERROR(msg, ...) do { printf("[CEREBRAS ERROR] " msg "\n", ##__VA_ARGS__); } while(0)
 #define LOG_DEBUG(msg, ...) do { if (enable_detailed_metrics_) printf("[CEREBRAS DEBUG] " msg "\n", ##__VA_ARGS__); } while(0)
+
+// Forward declaration for global model configuration
+namespace aimux {
+namespace config {
+    extern std::map<std::string, aimux::core::ModelRegistry::ModelInfo> g_selected_models;
+}
+}
+
 
 namespace aimux {
 namespace prettifier {
@@ -20,9 +30,19 @@ CerebrasFormatter::CerebrasPatterns::CerebrasPatterns()
 }
 
 // CerebrasFormatter implementation
-CerebrasFormatter::CerebrasFormatter()
-    : patterns_(std::make_unique<CerebrasPatterns>()) {
-    LOG_DEBUG("CerebrasFormatter initialized with speed optimization");
+std::string CerebrasFormatter::get_default_model() {
+    
+    auto it = aimux::config::g_selected_models.find("cerebras");
+    if (it != aimux::config::g_selected_models.end()) {
+        return it->second.model_id;
+    }
+    return "llama3.1-8b";
+}
+
+CerebrasFormatter::CerebrasFormatter(const std::string& model_name)
+    : patterns_(std::make_unique<CerebrasPatterns>())
+    , model_name_(model_name.empty() ? get_default_model() : model_name) {
+    LOG_DEBUG("CerebrasFormatter initialized with speed optimization (model: %s)", model_name_.c_str());
 }
 
 std::string CerebrasFormatter::get_name() const {

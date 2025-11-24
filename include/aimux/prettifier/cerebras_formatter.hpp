@@ -56,7 +56,7 @@ public:
      * Initializes the Cerebras formatter with default settings optimized for speed.
      * Sets up internal metrics collection and compiled regex patterns for efficient processing.
      */
-    CerebrasFormatter();
+    CerebrasFormatter(const std::string& model_name = "");
 
     /**
      * @brief Destructor
@@ -262,6 +262,14 @@ public:
     nlohmann::json get_diagnostics() const override;
 
 private:
+    /**
+     * @brief Get default model from global config
+     */
+    static std::string get_default_model();
+
+    // Model configuration
+    std::string model_name_;
+
     // Configuration settings
     bool optimize_speed_ = true;
     bool enable_detailed_metrics_ = false;

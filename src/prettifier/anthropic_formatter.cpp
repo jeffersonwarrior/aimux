@@ -1,4 +1,6 @@
 #include "aimux/prettifier/anthropic_formatter.hpp"
+#include "aimux/core/model_registry.hpp"
+#include <map>
 #include <regex>
 #include <sstream>
 #include <chrono>
@@ -8,6 +10,14 @@
 // TODO: Replace with proper logging when available
 #define LOG_ERROR(msg, ...) do { printf("[ANTHROPIC ERROR] " msg "\n", ##__VA_ARGS__); } while(0)
 #define LOG_DEBUG(msg, ...) do { printf("[ANTHROPIC DEBUG] " msg "\n", ##__VA_ARGS__); } while(0)
+
+// Forward declaration for global model configuration
+namespace aimux {
+namespace config {
+    extern std::map<std::string, aimux::core::ModelRegistry::ModelInfo> g_selected_models;
+}
+}
+
 
 namespace aimux {
 namespace prettifier {
@@ -25,9 +35,23 @@ AnthropicFormatter::ClaudePatterns::ClaudePatterns()
 }
 
 // AnthropicFormatter implementation
-AnthropicFormatter::AnthropicFormatter()
-    : patterns_(std::make_unique<ClaudePatterns>()) {
-    LOG_DEBUG("AnthropicFormatter initialized with Claude XML tool use support");
+std::string AnthropicFormatter::get_default_model() {
+    // Access global model configuration from aimux::config::g_selected_models
+    
+
+    auto it = aimux::config::g_selected_models.find("anthropic");
+    if (it != aimux::config::g_selected_models.end()) {
+        return it->second.model_id;
+    }
+
+    // Fallback to known stable model
+    return "claude-3-5-sonnet-20241022";
+}
+
+AnthropicFormatter::AnthropicFormatter(const std::string& model_name)
+    : patterns_(std::make_unique<ClaudePatterns>())
+    , model_name_(model_name.empty() ? get_default_model() : model_name) {
+    LOG_DEBUG("AnthropicFormatter initialized with Claude XML tool use support (model: %s)", model_name_.c_str());
 }
 
 std::string AnthropicFormatter::get_name() const {

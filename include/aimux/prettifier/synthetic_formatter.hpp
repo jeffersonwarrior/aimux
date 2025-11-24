@@ -65,7 +65,7 @@ public:
      * capabilities. Sets up random number generation for simulation, initializes
      * performance tracking, and prepares debugging infrastructure.
      */
-    SyntheticFormatter();
+    SyntheticFormatter(const std::string& model_name = "");
 
     /**
      * @brief Destructor
@@ -333,6 +333,14 @@ public:
     nlohmann::json validate_format_compatibility() const;
 
 private:
+    /**
+     * @brief Get default model from global config
+     */
+    static std::string get_default_model();
+
+    // Model configuration
+    std::string model_name_;
+
     // Configuration settings
     std::string simulation_mode_ = "mixed";
     bool enable_detailed_logging_ = true;

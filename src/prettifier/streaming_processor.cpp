@@ -150,28 +150,34 @@ ProcessingResult StreamingProcessor::get_result(const std::string& stream_id) {
         return result;
     }
 
-    // Wait for stream to be finalized
-    std::unique_lock<std::shared_mutex> lock(streams_mutex_);
-    auto condition = [&]() { return !stream_context->is_active || stream_context->is_finalized; };
+    // Wait for stream to be finalized with simple polling
+    constexpr int max_wait_ms = 5000;
+    constexpr int poll_interval_ms = 10;
+    auto start_wait = std::chrono::steady_clock::now();
 
-    if (!condition()) {
-        // Wait with timeout
-        constexpr int wait_timeout_ms = 100;
-        auto timeout = std::chrono::steady_clock::now() + std::chrono::milliseconds(wait_timeout_ms);
+    while (true) {
+        bool is_active = stream_context->is_active.load();
+        bool is_finalized = stream_context->is_finalized.load();
 
-        streams_mutex_.unlock_shared();
-        streams_mutex_.lock_shared(); // Upgrade lock
+        if (!is_active || is_finalized) {
+            break; // Stream is done
+        }
 
-        streams_mutex_.unlock_shared();
-        streams_mutex_.lock_shared();
+        auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now() - start_wait).count();
 
-        if (!condition() && std::chrono::steady_clock::now() > timeout) {
+        if (elapsed > max_wait_ms) {
             ProcessingResult result;
             result.success = false;
             result.error_message = "Stream result retrieval timeout: " + stream_id;
             return result;
         }
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(poll_interval_ms));
     }
+
+    // Now safely read the stream context with lock
+    std::lock_guard<std::mutex> lock(stream_context->context_mutex);
 
     if (!stream_context->error_message.empty()) {
         ProcessingResult result;
@@ -221,8 +227,11 @@ bool StreamingProcessor::cancel_stream(const std::string& stream_id) {
         return false;
     }
 
-    stream_context->is_active = false;
-    stream_context->error_message = "Stream cancelled";
+    {
+        std::lock_guard<std::mutex> lock(stream_context->context_mutex);
+        stream_context->is_active.store(false);
+        stream_context->error_message = "Stream cancelled";
+    }
 
     // Update statistics
     failed_streams_.fetch_add(1);
@@ -233,7 +242,7 @@ bool StreamingProcessor::cancel_stream(const std::string& stream_id) {
 
 bool StreamingProcessor::is_stream_active(const std::string& stream_id) const {
     auto stream_context = get_stream_context(stream_id);
-    return stream_context && stream_context->is_active;
+    return stream_context && stream_context->is_active.load();
 }
 
 bool StreamingProcessor::configure(const nlohmann::json& config) {
@@ -366,6 +375,10 @@ nlohmann::json StreamingProcessor::get_diagnostics() const {
             auto stream_age_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
                 std::chrono::steady_clock::now() - stream->start_time).count();
 
+            // Read atomic values without lock
+            bool is_active = stream->is_active.load();
+            bool is_finalized = stream->is_finalized.load();
+
             streams_info.push_back({
                 {"stream_id", stream_id},
                 {"provider", stream->process_context.provider_name},
@@ -373,8 +386,8 @@ nlohmann::json StreamingProcessor::get_diagnostics() const {
                 {"chunks_received", stream->total_chunks},
                 {"bytes_received", stream->total_bytes},
                 {"age_ms", stream_age_ms},
-                {"is_active", stream->is_active},
-                {"is_finalized", stream->is_finalized}
+                {"is_active", is_active},
+                {"is_finalized", is_finalized}
             });
         }
     }
@@ -556,72 +569,97 @@ void StreamingProcessor::worker_thread_main() {
 
 bool StreamingProcessor::process_task(const ProcessingTask& task) {
     auto stream_context = get_stream_context(task.stream_id);
-    if (!stream_context || !stream_context->is_active) {
+    if (!stream_context || !stream_context->is_active.load()) {
         return false;
     }
 
     try {
-        // Check for timeout
-        auto now = std::chrono::steady_clock::now();
-        auto stream_age_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-            now - stream_context->start_time).count();
+        // Prepare for processing - scope the lock
+        std::shared_ptr<PrettifierPlugin> formatter;
+        ProcessingContext process_context;
+        bool is_final = task.is_final;
 
-        if (stream_age_ms > stream_timeout_ms_) {
-            stream_context->error_message = "Stream timeout";
-            stream_context->is_active = false;
-            failed_streams_.fetch_add(1);
-            return false;
-        }
+        {
+            std::lock_guard<std::mutex> lock(stream_context->context_mutex);
 
-        // Check chunk timeout
-        auto chunk_age_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-            now - task.timestamp).count();
-        if (chunk_age_ms > chunk_timeout_ms_) {
-            LOG_DEBUG("Chunk timeout for stream %s, processing anyway", task.stream_id.c_str());
-        }
+            // Double-check active status after acquiring lock
+            if (!stream_context->is_active.load()) {
+                return false;
+            }
 
-        // Add chunk to buffer
-        stream_context->chunk_buffer.push_back(task.chunk_data);
-        stream_context->total_bytes += task.chunk_data.length();
-        stream_context->total_chunks++;
-        total_chunks_processed_.fetch_add(task.chunk_data.length());
+            // Check for timeout
+            auto now = std::chrono::steady_clock::now();
+            auto stream_age_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                now - stream_context->start_time).count();
 
-        // Process chunk with formatter
-        ProcessingResult chunk_result = stream_context->formatter->process_streaming_chunk(
+            if (stream_age_ms > stream_timeout_ms_) {
+                stream_context->error_message = "Stream timeout";
+                stream_context->is_active.store(false);
+                failed_streams_.fetch_add(1);
+                return false;
+            }
+
+            // Check chunk timeout
+            auto chunk_age_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                now - task.timestamp).count();
+            if (chunk_age_ms > chunk_timeout_ms_) {
+                LOG_DEBUG("Chunk timeout for stream %s, processing anyway", task.stream_id.c_str());
+            }
+
+            // Add chunk to buffer
+            stream_context->chunk_buffer.push_back(task.chunk_data);
+            stream_context->total_bytes += task.chunk_data.length();
+            stream_context->total_chunks++;
+            total_chunks_processed_.fetch_add(task.chunk_data.length());
+
+            // Copy formatter and context for processing outside lock
+            formatter = stream_context->formatter;
+            process_context = stream_context->process_context;
+        } // Release lock while doing expensive formatting
+
+        // Process chunk with formatter (without holding lock)
+        ProcessingResult chunk_result = formatter->process_streaming_chunk(
             task.chunk_data,
-            task.is_final,
-            stream_context->process_context);
+            is_final,
+            process_context);
 
-        if (task.is_final) {
-            finalize_stream(*stream_context);
-        }
+        // Re-acquire lock for modifications
+        {
+            std::lock_guard<std::mutex> lock(stream_context->context_mutex);
 
-        // Extract tool calls if any
-        if (!chunk_result.extracted_tool_calls.empty()) {
-            stream_context->accumulated_tool_calls.insert(
-                stream_context->accumulated_tool_calls.end(),
-                chunk_result.extracted_tool_calls.begin(),
-                chunk_result.extracted_tool_calls.end());
-        }
+            if (is_final) {
+                finalize_stream(*stream_context);
+            }
 
-        // Accumulate content
-        if (!chunk_result.processed_content.empty()) {
-            stream_context->content_accumulator += chunk_result.processed_content;
+            // Extract tool calls if any
+            if (!chunk_result.extracted_tool_calls.empty()) {
+                stream_context->accumulated_tool_calls.insert(
+                    stream_context->accumulated_tool_calls.end(),
+                    chunk_result.extracted_tool_calls.begin(),
+                    chunk_result.extracted_tool_calls.end());
+            }
+
+            // Accumulate content
+            if (!chunk_result.processed_content.empty()) {
+                stream_context->content_accumulator += chunk_result.processed_content;
+            }
         }
 
         return true;
 
     } catch (const std::exception& e) {
         LOG_ERROR("Failed to process task for stream %s: %s", task.stream_id.c_str(), e.what());
+        std::lock_guard<std::mutex> lock(stream_context->context_mutex);
         stream_context->error_message = e.what();
-        stream_context->is_active = false;
+        stream_context->is_active.store(false);
         failed_streams_.fetch_add(1);
         return false;
     }
 }
 
 void StreamingProcessor::finalize_stream(StreamContext& stream) {
-    if (stream.is_finalized) {
+    // Caller must hold stream.context_mutex
+    if (stream.is_finalized.load()) {
         return;
     }
 
@@ -638,8 +676,8 @@ void StreamingProcessor::finalize_stream(StreamContext& stream) {
         stream.error_message = e.what();
     }
 
-    stream.is_finalized = true;
-    stream.is_active = false;
+    stream.is_finalized.store(true);
+    stream.is_active.store(false);
 }
 
 std::string StreamingProcessor::generate_streaming_toon(StreamContext& stream) {
@@ -661,13 +699,13 @@ std::string StreamingProcessor::generate_streaming_toon(StreamContext& stream) {
     auto total_time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::steady_clock::now() - stream.start_time).count();
 
-    toon["metadata"]["streaming_stats"] = {
+    toon["metadata"]["streaming_stats"] = nlohmann::json{
         {"total_chunks", stream.total_chunks},
         {"total_bytes", stream.total_bytes},
         {"processing_time_ms", total_time_ms},
         {"chunks_per_second", static_cast<double>(stream.total_chunks) / (total_time_ms / 1000.0)},
         {"throughput_mbps", (static_cast<double>(stream.total_bytes) * 8.0) / (total_time_ms * 1000000.0)},
-        {"finalized", stream.is_finalized}
+        {"finalized", stream.is_finalized.load()}
     };
 
     return toon.dump();
@@ -754,10 +792,18 @@ void StreamingProcessor::cleanup_expired_streams() {
         auto age_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
             now - it->second->start_time).count();
 
-        if (age_ms > stream_timeout_ms_ * 2 && !it->second->is_finalized) {
+        bool is_finalized = it->second->is_finalized.load();
+
+        if (age_ms > stream_timeout_ms_ * 2 && !is_finalized) {
             LOG_DEBUG("Cleaning up expired stream %s", it->first.c_str());
-            it->second->is_active = false;
-            it->second->error_message = "Stream expired";
+
+            // Lock the stream context before modifying
+            {
+                std::lock_guard<std::mutex> ctx_lock(it->second->context_mutex);
+                it->second->is_active.store(false);
+                it->second->error_message = "Stream expired";
+            }
+
             failed_streams_.fetch_add(1);
             it = active_streams_.erase(it);
         } else {
@@ -770,9 +816,12 @@ std::shared_ptr<StreamingProcessor::StreamContext> StreamingProcessor::get_strea
     std::shared_lock<std::shared_mutex> lock(streams_mutex_);
     auto it = active_streams_.find(stream_id);
     if (it != active_streams_.end()) {
-        // Convert unique_ptr to shared_ptr by creating a copy
-        auto& context_ptr = it->second;
-        return std::shared_ptr<StreamContext>(context_ptr.get(), [](StreamContext*){}); // Non-owning shared_ptr
+        // Return raw pointer wrapped in shared_ptr with custom deleter that does nothing
+        // The mutex lock ensures the unique_ptr remains valid during this access
+        // But we need to ensure callers don't hold onto this beyond the scope where they need it
+        StreamContext* raw_ptr = it->second.get();
+        // Return a shared_ptr with a no-op deleter - the unique_ptr still owns the memory
+        return std::shared_ptr<StreamContext>(raw_ptr, [](StreamContext*){});
     }
     return nullptr;
 }

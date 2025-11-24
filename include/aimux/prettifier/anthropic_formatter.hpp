@@ -65,8 +65,10 @@ public:
      * Initializes the Anthropic formatter with comprehensive support for Claude's
      * unique response formats. Sets up XML parsing for tool use tags, handling of
      * thinking blocks, and optimization for Claude's detailed response style.
+     *
+     * @param model_name Optional model name to use (empty = use global default from config)
      */
-    AnthropicFormatter();
+    AnthropicFormatter(const std::string& model_name = "");
 
     /**
      * @brief Destructor
@@ -277,6 +279,14 @@ public:
     nlohmann::json get_diagnostics() const override;
 
 private:
+    /**
+     * @brief Get default model from global config
+     */
+    static std::string get_default_model();
+
+    // Model configuration
+    std::string model_name_;
+
     // Configuration settings
     bool preserve_thinking_ = true;
     bool extract_reasoning_ = true;

@@ -1,4 +1,6 @@
 #include "aimux/prettifier/openai_formatter.hpp"
+#include "aimux/core/model_registry.hpp"
+#include <map>
 #include <regex>
 #include <sstream>
 #include <chrono>
@@ -8,6 +10,14 @@
 // TODO: Replace with proper logging when available
 #define LOG_ERROR(msg, ...) do { printf("[OPENAI ERROR] " msg "\n", ##__VA_ARGS__); } while(0)
 #define LOG_DEBUG(msg, ...) do { printf("[OPENAI DEBUG] " msg "\n", ##__VA_ARGS__); } while(0)
+
+// Forward declaration for global model configuration
+namespace aimux {
+namespace config {
+    extern std::map<std::string, aimux::core::ModelRegistry::ModelInfo> g_selected_models;
+}
+}
+
 
 namespace aimux {
 namespace prettifier {
@@ -24,9 +34,19 @@ OpenAIFormatter::OpenAIPatterns::OpenAIPatterns()
 }
 
 // OpenAIFormatter implementation
-OpenAIFormatter::OpenAIFormatter()
-    : patterns_(std::make_unique<OpenAIPatterns>()) {
-    LOG_DEBUG("OpenAIFormatter initialized with comprehensive format support");
+std::string OpenAIFormatter::get_default_model() {
+    
+    auto it = aimux::config::g_selected_models.find("openai");
+    if (it != aimux::config::g_selected_models.end()) {
+        return it->second.model_id;
+    }
+    return "gpt-4o";
+}
+
+OpenAIFormatter::OpenAIFormatter(const std::string& model_name)
+    : patterns_(std::make_unique<OpenAIPatterns>())
+    , model_name_(model_name.empty() ? get_default_model() : model_name) {
+    LOG_DEBUG("OpenAIFormatter initialized with comprehensive format support (model: %s)", model_name_.c_str());
 }
 
 std::string OpenAIFormatter::get_name() const {

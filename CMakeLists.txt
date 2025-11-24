@@ -138,6 +138,8 @@ set(CORE_SOURCES
     src/core/bridge.cpp
     src/core/thread_manager.cpp
     src/core/error_handler.cpp
+    src/core/model_registry.cpp
+    src/core/api_initializer.cpp
 )
 
 # Prettifier sources
@@ -166,6 +168,9 @@ set(LOGGING_SOURCES
 )
 set(PROVIDER_SOURCES
     src/providers/provider_impl.cpp
+    src/providers/anthropic_model_query.cpp
+    src/providers/openai_model_query.cpp
+    src/providers/cerebras_model_query.cpp
 )
 set(DAEMON_SOURCES 
     src/daemon/daemon.cpp
@@ -175,6 +180,8 @@ set(WEBUI_SOURCES
     src/webui/web_server.cpp
     src/webui/metrics_streamer.cpp
     src/webui/resource_loader.cpp
+    src/webui/prettifier_api.cpp
+    src/webui/config_validator.cpp
 )
 set(NETWORK_SOURCES
     src/network/http_client.cpp
@@ -214,6 +221,7 @@ set(CONFIG_SOURCES
         src/config/production_config.cpp  # Production configuration implementation
     src/config/startup_validator.cpp  # Startup validation implementation
     src/config/toon_parser.cpp  # TOON format parser implementation
+    src/config/global_config.cpp  # Global configuration variables
 )
 
 # Gateway sources for unified API gateway
@@ -871,6 +879,36 @@ target_compile_options(prettifier_plugin_tests PRIVATE
     $<$<CXX_COMPILER_ID:GNU>:-Wall -Wextra -Wno-unused-parameter>
 )
 
+# Create streaming processor synchronization tests
+add_executable(streaming_processor_sync_test
+    test/streaming_processor_sync_test.cpp
+    src/prettifier/streaming_processor.cpp
+    src/prettifier/prettifier_plugin.cpp
+    src/prettifier/anthropic_formatter.cpp
+)
+
+target_link_libraries(streaming_processor_sync_test
+    nlohmann_json::nlohmann_json
+    asio::asio
+    OpenSSL::SSL
+    OpenSSL::Crypto
+    Threads::Threads
+    GTest::gtest
+    GTest::gtest_main
+    GTest::gmock
+    GTest::gmock_main
+)
+
+target_include_directories(streaming_processor_sync_test PRIVATE
+    include
+    ${GTEST_INCLUDE_DIRS}
+)
+
+target_compile_options(streaming_processor_sync_test PRIVATE
+    $<$<CXX_COMPILER_ID:Clang>:-Wall -Wextra -Wno-unused-parameter>
+    $<$<CXX_COMPILER_ID:GNU>:-Wall -Wextra -Wno-unused-parameter>
+)
+
 # Create prettifier config tests
 add_executable(prettifier_config_tests
     test/prettifier_config_test.cpp
@@ -986,6 +1024,426 @@ target_compile_options(real_provider_api_integration_test PRIVATE
     $<$<CXX_COMPILER_ID:GNU>:-Wall -Wextra -Wno-unused-parameter>
 )
 
+# Create Live API Integration Test (Anthropic + OpenAI with Real APIs)
+add_executable(live_api_integration_test
+    test/live_api_integration_test.cpp
+    ${PRETTIFIER_SOURCES}
+    ${LOGGING_SOURCES}
+)
+
+target_link_libraries(live_api_integration_test
+    nlohmann_json::nlohmann_json
+    CURL::libcurl
+    OpenSSL::SSL
+    OpenSSL::Crypto
+    Threads::Threads
+    GTest::gtest
+    GTest::gmock
+)
+
+target_include_directories(live_api_integration_test PRIVATE
+    include
+    ${GTEST_INCLUDE_DIRS}
+)
+
+target_compile_options(live_api_integration_test PRIVATE
+    $<$<CXX_COMPILER_ID:Clang>:-Wall -Wextra -Wno-unused-parameter>
+    $<$<CXX_COMPILER_ID:GNU>:-Wall -Wextra -Wno-unused-parameter>
+)
+
+# ============================================================================
+# v2.2 Test Executables
+# ============================================================================
+
+# v2.2 Logging Test (Global logging functions)
+add_executable(v2_2_logging_test
+    test/v2_2_logging_test.cpp
+    ${LOGGING_SOURCES}
+)
+
+target_link_libraries(v2_2_logging_test
+    nlohmann_json::nlohmann_json
+    Threads::Threads
+    GTest::gtest
+    GTest::gmock
+)
+
+target_include_directories(v2_2_logging_test PRIVATE
+    include
+    ${GTEST_INCLUDE_DIRS}
+)
+
+target_compile_options(v2_2_logging_test PRIVATE
+    $<$<CXX_COMPILER_ID:Clang>:-Wall -Wextra -Wno-unused-parameter>
+    $<$<CXX_COMPILER_ID:GNU>:-Wall -Wextra -Wno-unused-parameter>
+)
+
+# v2.2 ConfigValidator Test
+add_executable(v2_2_config_validator_test
+    test/v2_2_config_validator_test.cpp
+    ${WEBUI_SOURCES}
+    ${LOGGING_SOURCES}
+)
+
+target_link_libraries(v2_2_config_validator_test
+    nlohmann_json::nlohmann_json
+    Crow::Crow
+    Threads::Threads
+    GTest::gtest
+    GTest::gmock
+)
+
+target_include_directories(v2_2_config_validator_test PRIVATE
+    include
+    ${GTEST_INCLUDE_DIRS}
+)
+
+target_compile_options(v2_2_config_validator_test PRIVATE
+    $<$<CXX_COMPILER_ID:Clang>:-Wall -Wextra -Wno-unused-parameter>
+    $<$<CXX_COMPILER_ID:GNU>:-Wall -Wextra -Wno-unused-parameter>
+)
+
+# v2.2 PrettifierAPI Test
+add_executable(v2_2_prettifier_api_test
+    test/v2_2_prettifier_api_test.cpp
+    ${WEBUI_SOURCES}
+    ${PRETTIFIER_SOURCES}
+    ${LOGGING_SOURCES}
+)
+
+target_link_libraries(v2_2_prettifier_api_test
+    nlohmann_json::nlohmann_json
+    Crow::Crow
+    Threads::Threads
+    GTest::gtest
+    GTest::gmock
+)
+
+target_include_directories(v2_2_prettifier_api_test PRIVATE
+    include
+    ${GTEST_INCLUDE_DIRS}
+)
+
+target_compile_options(v2_2_prettifier_api_test PRIVATE
+    $<$<CXX_COMPILER_ID:Clang>:-Wall -Wextra -Wno-unused-parameter>
+    $<$<CXX_COMPILER_ID:GNU>:-Wall -Wextra -Wno-unused-parameter>
+)
+
+# v2.2 Task 1: Crow HTTP Route Integration Tests
+add_executable(v2_2_crow_integration_test
+    test/v2_2_crow_integration_test.cpp
+)
+
+target_link_libraries(v2_2_crow_integration_test
+    nlohmann_json::nlohmann_json
+    CURL::libcurl
+    Threads::Threads
+    GTest::gtest
+    GTest::gmock
+)
+
+target_include_directories(v2_2_crow_integration_test PRIVATE
+    include
+    ${GTEST_INCLUDE_DIRS}
+)
+
+target_compile_options(v2_2_crow_integration_test PRIVATE
+    $<$<CXX_COMPILER_ID:Clang>:-Wall -Wextra -Wno-unused-parameter>
+    $<$<CXX_COMPILER_ID:GNU>:-Wall -Wextra -Wno-unused-parameter>
+)
+
+# v2.2 Task 2: Frontend CSS Validation Tests
+add_executable(v2_2_frontend_css_test
+    test/v2_2_frontend_css_test.cpp
+)
+
+target_link_libraries(v2_2_frontend_css_test
+    Threads::Threads
+    GTest::gtest
+    GTest::gmock
+)
+
+target_include_directories(v2_2_frontend_css_test PRIVATE
+    include
+    ${GTEST_INCLUDE_DIRS}
+)
+
+target_compile_options(v2_2_frontend_css_test PRIVATE
+    $<$<CXX_COMPILER_ID:Clang>:-Wall -Wextra -Wno-unused-parameter>
+    $<$<CXX_COMPILER_ID:GNU>:-Wall -Wextra -Wno-unused-parameter>
+)
+
+# v2.2 Task 3: JavaScript API Client Tests
+add_executable(v2_2_javascript_api_test
+    test/v2_2_javascript_api_test.cpp
+)
+
+target_link_libraries(v2_2_javascript_api_test
+    Threads::Threads
+    GTest::gtest
+    GTest::gmock
+)
+
+target_include_directories(v2_2_javascript_api_test PRIVATE
+    include
+    ${GTEST_INCLUDE_DIRS}
+)
+
+target_compile_options(v2_2_javascript_api_test PRIVATE
+    $<$<CXX_COMPILER_ID:Clang>:-Wall -Wextra -Wno-unused-parameter>
+    $<$<CXX_COMPILER_ID:GNU>:-Wall -Wextra -Wno-unused-parameter>
+)
+
+# v2.2 Task 4: UI Controller Tests
+add_executable(v2_2_ui_controller_test
+    test/v2_2_ui_controller_test.cpp
+)
+
+target_link_libraries(v2_2_ui_controller_test
+    Threads::Threads
+    GTest::gtest
+    GTest::gmock
+)
+
+target_include_directories(v2_2_ui_controller_test PRIVATE
+    include
+    ${GTEST_INCLUDE_DIRS}
+)
+
+target_compile_options(v2_2_ui_controller_test PRIVATE
+    $<$<CXX_COMPILER_ID:Clang>:-Wall -Wextra -Wno-unused-parameter>
+    $<$<CXX_COMPILER_ID:GNU>:-Wall -Wextra -Wno-unused-parameter>
+)
+
+# v2.2 Task 5: HTML Structure Tests
+add_executable(v2_2_html_structure_test
+    test/v2_2_html_structure_test.cpp
+)
+
+target_link_libraries(v2_2_html_structure_test
+    Threads::Threads
+    GTest::gtest
+    GTest::gmock
+)
+
+target_include_directories(v2_2_html_structure_test PRIVATE
+    include
+    ${GTEST_INCLUDE_DIRS}
+)
+
+target_compile_options(v2_2_html_structure_test PRIVATE
+    $<$<CXX_COMPILER_ID:Clang>:-Wall -Wextra -Wno-unused-parameter>
+    $<$<CXX_COMPILER_ID:GNU>:-Wall -Wextra -Wno-unused-parameter>
+)
+
+# ============================================================================
+# v3.0 Model Discovery System Tests
+# ============================================================================
+
+# Model Registry Test
+add_executable(model_registry_test
+    test/model_registry_test.cpp
+    src/core/model_registry.cpp
+)
+
+target_link_libraries(model_registry_test
+    nlohmann_json::nlohmann_json
+    Threads::Threads
+    GTest::gtest
+    GTest::gtest_main
+    GTest::gmock
+)
+
+target_include_directories(model_registry_test PRIVATE
+    include
+    ${GTEST_INCLUDE_DIRS}
+)
+
+target_compile_options(model_registry_test PRIVATE
+    $<$<CXX_COMPILER_ID:Clang>:-Wall -Wextra -Wno-unused-parameter>
+    $<$<CXX_COMPILER_ID:GNU>:-Wall -Wextra -Wno-unused-parameter>
+)
+
+# Anthropic Model Query Test
+add_executable(anthropic_model_query_test
+    test/anthropic_model_query_test.cpp
+    src/core/model_registry.cpp
+    src/providers/anthropic_model_query.cpp
+)
+
+target_link_libraries(anthropic_model_query_test
+    nlohmann_json::nlohmann_json
+    CURL::libcurl
+    OpenSSL::SSL
+    OpenSSL::Crypto
+    Threads::Threads
+    GTest::gtest
+    GTest::gtest_main
+    GTest::gmock
+)
+
+target_include_directories(anthropic_model_query_test PRIVATE
+    include
+    ${GTEST_INCLUDE_DIRS}
+)
+
+target_compile_options(anthropic_model_query_test PRIVATE
+    $<$<CXX_COMPILER_ID:Clang>:-Wall -Wextra -Wno-unused-parameter>
+    $<$<CXX_COMPILER_ID:GNU>:-Wall -Wextra -Wno-unused-parameter>
+)
+
+# OpenAI Model Query Test
+add_executable(openai_model_query_test
+    test/openai_model_query_test.cpp
+    src/core/model_registry.cpp
+    src/providers/openai_model_query.cpp
+)
+
+target_link_libraries(openai_model_query_test
+    nlohmann_json::nlohmann_json
+    CURL::libcurl
+    OpenSSL::SSL
+    OpenSSL::Crypto
+    Threads::Threads
+    GTest::gtest
+    GTest::gtest_main
+    GTest::gmock
+)
+
+target_include_directories(openai_model_query_test PRIVATE
+    include
+    ${GTEST_INCLUDE_DIRS}
+)
+
+target_compile_options(openai_model_query_test PRIVATE
+    $<$<CXX_COMPILER_ID:Clang>:-Wall -Wextra -Wno-unused-parameter>
+    $<$<CXX_COMPILER_ID:GNU>:-Wall -Wextra -Wno-unused-parameter>
+)
+
+# Cerebras Model Query Test
+add_executable(cerebras_model_query_test
+    test/cerebras_model_query_test.cpp
+    src/core/model_registry.cpp
+    src/providers/cerebras_model_query.cpp
+)
+
+target_link_libraries(cerebras_model_query_test
+    nlohmann_json::nlohmann_json
+    CURL::libcurl
+    OpenSSL::SSL
+    OpenSSL::Crypto
+    Threads::Threads
+    GTest::gtest
+    GTest::gtest_main
+    GTest::gmock
+)
+
+target_include_directories(cerebras_model_query_test PRIVATE
+    include
+    ${GTEST_INCLUDE_DIRS}
+)
+
+target_compile_options(cerebras_model_query_test PRIVATE
+    $<$<CXX_COMPILER_ID:Clang>:-Wall -Wextra -Wno-unused-parameter>
+    $<$<CXX_COMPILER_ID:GNU>:-Wall -Wextra -Wno-unused-parameter>
+)
+
+# API Initializer Test
+add_executable(api_initializer_test
+    test/api_initializer_test.cpp
+    src/core/api_initializer.cpp
+    src/core/model_registry.cpp
+    src/providers/anthropic_model_query.cpp
+    src/providers/openai_model_query.cpp
+    src/providers/cerebras_model_query.cpp
+)
+
+target_link_libraries(api_initializer_test
+    nlohmann_json::nlohmann_json
+    CURL::libcurl
+    OpenSSL::SSL
+    OpenSSL::Crypto
+    Threads::Threads
+    GTest::gtest
+    GTest::gtest_main
+    GTest::gmock
+)
+
+target_include_directories(api_initializer_test PRIVATE
+    include
+    ${GTEST_INCLUDE_DIRS}
+)
+
+target_compile_options(api_initializer_test PRIVATE
+    $<$<CXX_COMPILER_ID:Clang>:-Wall -Wextra -Wno-unused-parameter>
+    $<$<CXX_COMPILER_ID:GNU>:-Wall -Wextra -Wno-unused-parameter>
+)
+
+# Main Startup Integration Test (Phase 4.4)
+add_executable(main_startup_integration_test
+    test/main_startup_integration_test.cpp
+    src/core/api_initializer.cpp
+    src/core/model_registry.cpp
+    src/providers/anthropic_model_query.cpp
+    src/providers/openai_model_query.cpp
+    src/providers/cerebras_model_query.cpp
+    src/config/global_config.cpp
+    ${PRETTIFIER_SOURCES}
+)
+
+target_link_libraries(main_startup_integration_test
+    nlohmann_json::nlohmann_json
+    CURL::libcurl
+    OpenSSL::SSL
+    OpenSSL::Crypto
+    Threads::Threads
+    GTest::gtest
+    GTest::gtest_main
+    GTest::gmock
+)
+
+target_include_directories(main_startup_integration_test PRIVATE
+    include
+    ${GTEST_INCLUDE_DIRS}
+)
+
+target_compile_options(main_startup_integration_test PRIVATE
+    $<$<CXX_COMPILER_ID:Clang>:-Wall -Wextra -Wno-unused-parameter>
+    $<$<CXX_COMPILER_ID:GNU>:-Wall -Wextra -Wno-unused-parameter>
+)
+
+# Live API Dynamic Models Test (Phase 5)
+add_executable(live_api_dynamic_models_test
+    test/live_api_dynamic_models_test.cpp
+    src/core/api_initializer.cpp
+    src/core/model_registry.cpp
+    src/providers/anthropic_model_query.cpp
+    src/providers/openai_model_query.cpp
+    src/providers/cerebras_model_query.cpp
+    ${PRETTIFIER_SOURCES}
+)
+
+target_link_libraries(live_api_dynamic_models_test
+    nlohmann_json::nlohmann_json
+    CURL::libcurl
+    OpenSSL::SSL
+    OpenSSL::Crypto
+    Threads::Threads
+    GTest::gtest
+    GTest::gtest_main
+    GTest::gmock
+)
+
+target_include_directories(live_api_dynamic_models_test PRIVATE
+    include
+    ${GTEST_INCLUDE_DIRS}
+)
+
+target_compile_options(live_api_dynamic_models_test PRIVATE
+    $<$<CXX_COMPILER_ID:Clang>:-Wall -Wextra -Wno-unused-parameter>
+    $<$<CXX_COMPILER_ID:GNU>:-Wall -Wextra -Wno-unused-parameter>
+)
+
 # Test targets for easy execution
 add_custom_target(test_unit
     COMMAND unit_tests
@@ -1027,6 +1485,13 @@ add_custom_target(test_real_api
     DEPENDS real_provider_api_integration_test
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
     COMMENT "Running Real Provider API Integration Tests (v2.1 Production Validation)"
+)
+
+add_custom_target(test_live_api
+    COMMAND live_api_integration_test
+    DEPENDS live_api_integration_test
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+    COMMENT "Running Live API Integration Tests (Anthropic + OpenAI with Real API Keys)"
 )
 
 add_custom_target(test_advanced

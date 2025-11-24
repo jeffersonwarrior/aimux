@@ -8,6 +8,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="css/dashboard.css">
     <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="css/prettifier.css">
 </head>
 <body class="bg-gray-900 text-white">
     <div id="app">
@@ -64,6 +65,100 @@
                     <canvas id="performance-chart" width="400" height="200"></canvas>
                 </div>
             </section>
+
+            <!-- Prettifier Status Card (v2.2) -->
+            <section class="mb-8">
+                <div class="card prettifier-status" id="prettifier-card">
+                    <div class="card-header">
+                        <h2>
+                            <svg class="icon prettifier-icon" width="24" height="24" viewBox="0 0 24 24" fill="white">
+                                <path d="M12 2L2 7v10c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-10-5z"/>
+                            </svg>
+                            Prettifier Status
+                        </h2>
+                        <span class="status-badge" id="prettifier-status">Enabled</span>
+                    </div>
+
+                    <div class="card-body">
+                        <!-- Status Section -->
+                        <div class="status-section">
+                            <div class="metric">
+                                <label>Formatting Speed</label>
+                                <span id="fmt-speed">2.1ms avg</span>
+                            </div>
+                            <div class="metric">
+                                <label>Throughput</label>
+                                <span id="fmt-throughput">450 req/s</span>
+                            </div>
+                            <div class="metric">
+                                <label>Success Rate</label>
+                                <span id="fmt-success">99.8%</span>
+                            </div>
+                        </div>
+
+                        <!-- Format Preferences -->
+                        <div class="format-section">
+                            <h3>Format Preferences</h3>
+                            <div class="provider-formats">
+                                <div class="provider" id="anthropic-provider">
+                                    <label>Anthropic</label>
+                                    <select id="anthropic-format">
+                                        <option value="json-tool-use">JSON Tool Use</option>
+                                        <option value="xml-tool-calls">XML Tool Calls</option>
+                                        <option value="thinking-blocks">Thinking Blocks</option>
+                                    </select>
+                                </div>
+                                <div class="provider" id="openai-provider">
+                                    <label>OpenAI</label>
+                                    <select id="openai-format">
+                                        <option value="chat-completion">Chat Completion</option>
+                                        <option value="function-calling">Function Calling</option>
+                                        <option value="structured-output">Structured Output</option>
+                                    </select>
+                                </div>
+                                <div class="provider" id="cerebras-provider">
+                                    <label>Cerebras</label>
+                                    <select id="cerebras-format">
+                                        <option value="speed-optimized">Speed Optimized</option>
+                                        <option value="standard">Standard</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Configuration Options -->
+                        <div class="config-section">
+                            <h3>Configuration</h3>
+                            <div class="config-group">
+                                <label>Streaming Enabled</label>
+                                <input type="checkbox" id="streaming-enabled" checked>
+                            </div>
+                            <div class="config-group">
+                                <label>Max Buffer Size (KB)</label>
+                                <input type="number" id="buffer-size" min="256" max="8192" value="1024">
+                            </div>
+                            <div class="config-group">
+                                <label>Timeout (ms)</label>
+                                <input type="number" id="timeout-ms" min="1000" max="60000" value="5000">
+                            </div>
+                            <div class="config-group">
+                                <label>Security Hardening</label>
+                                <input type="checkbox" id="security-hardening" checked>
+                            </div>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="action-buttons">
+                            <button id="apply-config" class="btn btn-primary">Apply Configuration</button>
+                            <button id="reset-config" class="btn btn-secondary">Reset to Defaults</button>
+                            <button id="refresh-status" class="btn btn-tertiary">Refresh Status</button>
+                        </div>
+
+                        <!-- Status Messages -->
+                        <div id="config-message" class="message-box" style="display: none;"></div>
+                    </div>
+                </div>
+            </section>
         </main>
     </div>
 
@@ -89,5 +184,17 @@
     <!-- Load JavaScript -->
     <script src="js/dashboard.js"></script>
     <script src="js/components.js"></script>
+    <script src="js/api-client.js"></script>
+    <script src="js/prettifier-ui.js"></script>
+    <script>
+        // Initialize Prettifier UI
+        document.addEventListener('DOMContentLoaded', () => {
+            const apiClient = new PrettifierAPIClient('/api');
+            const prettifierUI = new PrettifierUI(apiClient);
+            prettifierUI.init().catch(error => {
+                console.error('Failed to initialize Prettifier UI:', error);
+            });
+        });
+    </script>
 </body>
 </html>

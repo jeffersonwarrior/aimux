@@ -188,3 +188,93 @@ std::string Logger::get_timestamp() const {
 
 } // namespace logging
 } // namespace aimux
+
+// ============================================================================
+// Global Logging Functions (aimux namespace)
+// ============================================================================
+
+namespace aimux {
+
+// Get or create default logger
+static std::shared_ptr<logging::Logger> get_default_logger() {
+    static auto logger = logging::LoggerRegistry::get_logger("aimux_default");
+    return logger;
+}
+
+void debug(const std::string& message, const nlohmann::json& data) {
+    auto logger = get_default_logger();
+    if (logger) {
+        logger->debug(message, data);
+    }
+}
+
+void info(const std::string& message, const nlohmann::json& data) {
+    auto logger = get_default_logger();
+    if (logger) {
+        logger->info(message, data);
+    }
+}
+
+void warn(const std::string& message, const nlohmann::json& data) {
+    auto logger = get_default_logger();
+    if (logger) {
+        logger->warn(message, data);
+    }
+}
+
+void error(const std::string& message, const nlohmann::json& data) {
+    auto logger = get_default_logger();
+    if (logger) {
+        logger->error(message, data);
+    }
+}
+
+void fatal(const std::string& message, const nlohmann::json& data) {
+    auto logger = get_default_logger();
+    if (logger) {
+        logger->fatal(message, data);
+    }
+}
+
+void trace(const std::string& message, const nlohmann::json& data) {
+    auto logger = get_default_logger();
+    if (logger) {
+        logger->trace(message, data);
+    }
+}
+
+} // namespace aimux
+
+// ============================================================================
+// Global Logging Functions (aimux::logging namespace)
+// ============================================================================
+
+namespace aimux {
+namespace logging {
+
+void debug(const std::string& message, const nlohmann::json& data) {
+    aimux::debug(message, data);
+}
+
+void info(const std::string& message, const nlohmann::json& data) {
+    aimux::info(message, data);
+}
+
+void warn(const std::string& message, const nlohmann::json& data) {
+    aimux::warn(message, data);
+}
+
+void error(const std::string& message, const nlohmann::json& data) {
+    aimux::error(message, data);
+}
+
+void fatal(const std::string& message, const nlohmann::json& data) {
+    aimux::fatal(message, data);
+}
+
+void trace(const std::string& message, const nlohmann::json& data) {
+    aimux::trace(message, data);
+}
+
+} // namespace logging
+} // namespace aimux

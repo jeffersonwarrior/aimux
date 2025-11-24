@@ -30,3 +30,4 @@ yarn-error.log*
 !V2.1_RELEASE_READY.md
 !V2.1_FINAL_RELEASE.md
 !CLAUDE.md
+.git-credentials

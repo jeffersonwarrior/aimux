@@ -1,0 +1,462 @@
+/* v2.2 Task 2: Prettifier Dashboard CSS Stylesheet
+ * Professional styling for the prettifier status and configuration dashboard
+ * Responsive design with gradient backgrounds and smooth animations
+ */
+
+/* ============================================================================
+ * Prettifier Card Container
+ * ========================================================================= */
+.prettifier-status {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.prettifier-status:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
+}
+
+/* ============================================================================
+ * Card Header
+ * ========================================================================= */
+.prettifier-status .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    padding-bottom: 15px;
+}
+
+.prettifier-status h2 {
+    color: white;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 1.5rem;
+    font-weight: 600;
+}
+
+.prettifier-icon {
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+    fill: white;
+}
+
+/* ============================================================================
+ * Status Badge
+ * ========================================================================= */
+.status-badge {
+    background: #4CAF50;
+    color: white;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    animation: pulse 2s infinite;
+}
+
+.status-badge.disabled {
+    background: #f44336;
+    animation: none;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.8;
+    }
+}
+
+/* ============================================================================
+ * Metrics Section (Status Display)
+ * ========================================================================= */
+.status-section {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 15px;
+    margin-bottom: 25px;
+    background: rgba(255, 255, 255, 0.1);
+    padding: 15px;
+    border-radius: 6px;
+    backdrop-filter: blur(10px);
+}
+
+.metric {
+    color: white;
+    text-align: center;
+}
+
+.metric label {
+    display: block;
+    font-size: 12px;
+    opacity: 0.8;
+    margin-bottom: 5px;
+    text-transform: uppercase;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+
+.metric span {
+    display: block;
+    font-size: 18px;
+    font-weight: bold;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* ============================================================================
+ * Format Preferences Section
+ * ========================================================================= */
+.format-section {
+    margin-bottom: 25px;
+}
+
+.format-section h3 {
+    color: white;
+    margin-top: 0;
+    margin-bottom: 15px;
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-weight: 600;
+}
+
+.provider-formats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
+}
+
+.provider {
+    background: rgba(255, 255, 255, 0.1);
+    padding: 12px;
+    border-radius: 6px;
+    backdrop-filter: blur(10px);
+    transition: background 0.3s ease;
+}
+
+.provider:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.provider label {
+    display: block;
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 12px;
+    margin-bottom: 6px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.provider select {
+    width: 100%;
+    padding: 8px;
+    border: none;
+    border-radius: 4px;
+    font-size: 13px;
+    background: white;
+    color: #333;
+    cursor: pointer;
+    transition: box-shadow 0.3s ease;
+}
+
+.provider select:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.3);
+}
+
+/* ============================================================================
+ * Configuration Options Section
+ * ========================================================================= */
+.config-section {
+    margin-bottom: 25px;
+}
+
+.config-section h3 {
+    color: white;
+    margin-top: 0;
+    margin-bottom: 15px;
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-weight: 600;
+}
+
+.config-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+    background: rgba(255, 255, 255, 0.1);
+    padding: 10px 12px;
+    border-radius: 6px;
+    backdrop-filter: blur(10px);
+    transition: background 0.3s ease;
+}
+
+.config-group:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.config-group label {
+    color: rgba(255, 255, 255, 0.8);
+    flex: 1;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.config-group input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    accent-color: #4CAF50;
+}
+
+.config-group input[type="number"] {
+    padding: 6px 10px;
+    border: none;
+    border-radius: 4px;
+    min-width: 100px;
+    font-size: 13px;
+    transition: box-shadow 0.3s ease;
+}
+
+.config-group input[type="number"]:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.3);
+}
+
+/* ============================================================================
+ * Action Buttons
+ * ========================================================================= */
+.action-buttons {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.btn {
+    padding: 10px 16px;
+    border: none;
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.btn-primary {
+    background: #4CAF50;
+    color: white;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.btn-primary:hover:not(:disabled) {
+    background: #45a049;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    transform: translateY(-1px);
+}
+
+.btn-primary:active:not(:disabled) {
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.btn-secondary {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.btn-secondary:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.3);
+    border-color: rgba(255, 255, 255, 0.5);
+}
+
+.btn-tertiary {
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.btn-tertiary:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.15);
+    color: white;
+}
+
+/* ============================================================================
+ * Message Box (Success/Error Display)
+ * ========================================================================= */
+.message-box {
+    margin-top: 15px;
+    padding: 12px;
+    border-radius: 4px;
+    font-size: 13px;
+    animation: slideIn 0.3s ease;
+    backdrop-filter: blur(10px);
+}
+
+.message-box.success {
+    background: rgba(76, 175, 80, 0.2);
+    border: 1px solid rgba(76, 175, 80, 0.4);
+    color: #c8e6c9;
+}
+
+.message-box.error {
+    background: rgba(244, 67, 54, 0.2);
+    border: 1px solid rgba(244, 67, 54, 0.4);
+    color: #ffcdd2;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ============================================================================
+ * Responsive Design - Tablet Breakpoint
+ * ========================================================================= */
+@media (max-width: 768px) {
+    .prettifier-status {
+        padding: 15px;
+    }
+
+    .prettifier-status h2 {
+        font-size: 1.25rem;
+    }
+
+    .status-section {
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+        gap: 10px;
+    }
+
+    .provider-formats {
+        grid-template-columns: 1fr;
+    }
+
+    .action-buttons {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ============================================================================
+ * Responsive Design - Mobile Breakpoint
+ * ========================================================================= */
+@media (max-width: 480px) {
+    .prettifier-status {
+        padding: 12px;
+        margin-bottom: 15px;
+    }
+
+    .prettifier-status .card-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+
+    .prettifier-status h2 {
+        font-size: 1.1rem;
+    }
+
+    .status-section {
+        grid-template-columns: 1fr;
+        gap: 8px;
+        padding: 12px;
+    }
+
+    .metric span {
+        font-size: 16px;
+    }
+
+    .config-group {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .config-group input[type="number"] {
+        width: 100%;
+    }
+}
+
+/* ============================================================================
+ * Accessibility Enhancements
+ * ========================================================================= */
+.prettifier-status *:focus-visible {
+    outline: 2px solid rgba(255, 255, 255, 0.8);
+    outline-offset: 2px;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+    .prettifier-status {
+        border: 2px solid white;
+    }
+
+    .status-badge {
+        border: 1px solid white;
+    }
+
+    .message-box.success {
+        border-width: 2px;
+    }
+
+    .message-box.error {
+        border-width: 2px;
+    }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+    .prettifier-status,
+    .btn,
+    .message-box,
+    .status-badge {
+        animation: none;
+        transition: none;
+    }
+
+    .prettifier-status:hover {
+        transform: none;
+    }
+}
+
+/* ============================================================================
+ * Print Styles
+ * ========================================================================= */
+@media print {
+    .prettifier-status {
+        background: white !important;
+        color: black !important;
+        box-shadow: none !important;
+    }
+
+    .action-buttons {
+        display: none;
+    }
+
+    .message-box {
+        border: 1px solid black;
+    }
+}

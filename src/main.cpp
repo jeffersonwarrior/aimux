@@ -12,12 +12,17 @@
 #include "aimux/cli/migrate.hpp"
 #include "config/production_config.h"
 #include "aimux/config/startup_validator.hpp"
+#include "aimux/config/global_config.hpp"
+#include "aimux/core/env_utils.hpp"
+#include "aimux/core/api_initializer.hpp"
 
 using namespace aimux;
 using namespace aimux::core;
 
 // Global logger
 static std::shared_ptr<aimux::logging::Logger> logger;
+
+// Global model configuration (discovered at startup) - defined in src/config/global_config.cpp
 
 // Simple version reader
 std::string get_version() {
@@ -251,6 +256,7 @@ void print_help() {
     std::cout << "    -r, --reload         Reload daemon configuration\n";
     std::cout << "    --validate-config    Validate configuration file\n";
     std::cout << "    --status-providers   Check provider health and status\n";
+    std::cout << "    --skip-model-validation  Skip model validation on startup (use cached/fallback models)\n";
     std::cout << "    --config <file>      Use specific config file (default: config.json)\n";
     std::cout << "    -l, --log-level      Set logging level (trace, debug, info, warn, error, fatal)\n\n";
     std::cout << "SERVICE MANAGEMENT:\n";
@@ -1060,16 +1066,75 @@ void test_production_deployment() {
 
 void setup_logging(const std::string& level_str = "info") {
     aimux::logging::LogLevel level = aimux::logging::LogUtils::string_to_level(level_str);
-    
+
     logger = aimux::logging::LoggerRegistry::get_logger("aimux-main", "aimux.log");
     logger->set_level(level);
     logger->set_console_enabled(level >= aimux::logging::LogLevel::INFO);
-    
+
     logger->add_default_field("version", get_version());
     logger->info("Aimux logger initialized", {
         {"log_level", level_str},
         {"version", get_version()}
     });
+}
+
+/**
+ * @brief Initialize API models dynamically using model discovery
+ * @param skip_validation If true, skip test API calls and use cached/fallback
+ */
+void initialize_models(bool skip_validation = false) {
+    std::cout << "\n=== Model Discovery System ===\n";
+
+    // Load environment variables from .env file
+    aimux::core::load_env_file(".env");
+
+    aimux::core::APIInitializer::InitResult init_result;
+
+    if (skip_validation) {
+        std::cout << "Skipping model validation (using cached/fallback models)\n";
+        // Try to get cached result
+        if (aimux::core::APIInitializer::has_valid_cache()) {
+            init_result = aimux::core::APIInitializer::get_cached_result();
+            std::cout << "Using cached model discovery results\n";
+        } else {
+            // No cache, fall back to default initialization without validation
+            std::cout << "No cache available, using fallback models\n";
+            init_result = aimux::core::APIInitializer::initialize_all_providers();
+        }
+    } else {
+        // Full model discovery with validation
+        init_result = aimux::core::APIInitializer::initialize_all_providers();
+    }
+
+    // Store selected models globally
+    aimux::config::g_selected_models = init_result.selected_models;
+
+    // Log results
+    std::cout << "\n=== Model Discovery Summary ===\n";
+    for (const auto& [provider, model] : init_result.selected_models) {
+        std::string status = "VALIDATED";
+        if (init_result.used_fallback.count(provider) && init_result.used_fallback.at(provider)) {
+            status = "FALLBACK";
+        }
+
+        std::cout << "  " << provider << ": " << model.model_id
+                  << " (v" << model.version << ") [" << status << "]\n";
+
+        // Log warning if using fallback
+        if (status == "FALLBACK" && !init_result.error_messages[provider].empty()) {
+            std::cout << "    WARNING: " << init_result.error_messages[provider] << "\n";
+        }
+    }
+
+    std::cout << "  Total time: " << init_result.total_time_ms << " ms\n";
+    std::cout << "================================\n\n";
+
+    if (logger) {
+        logger->info("Model discovery completed", {
+            {"total_time_ms", init_result.total_time_ms},
+            {"providers_count", init_result.selected_models.size()}
+        });
+    }
 }
 
 // Critical startup validation
@@ -1190,7 +1255,8 @@ int main(int argc, char* argv[]) {
     std::string config_file = "config.json";
     std::string log_level = "info";
     bool foreground = false;
-    
+    bool skip_model_validation = false;
+
     try {
         // Parse command line arguments
         for (int i = 1; i < argc; i++) {
@@ -1199,16 +1265,22 @@ int main(int argc, char* argv[]) {
                 config_file = argv[++i];
             } else if (arg == "--foreground") {
                 foreground = true;
+            } else if (arg == "--skip-model-validation") {
+                skip_model_validation = true;
             }
         }
-        
+
         // Setup logging
         setup_logging(log_level);
-        
+
+        // Initialize models at startup (before other operations)
+        initialize_models(skip_model_validation);
+
         logger->info("Aimux starting", {
             {"args", argc},
             {"config_file", config_file},
-            {"foreground", foreground}
+            {"foreground", foreground},
+            {"skip_model_validation", skip_model_validation}
         });
         
         if (argc < 2) {

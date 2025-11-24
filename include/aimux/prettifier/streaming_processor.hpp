@@ -80,14 +80,17 @@ public:
         size_t total_chunks = 0;
 
         // State tracking
-        bool is_active = true;
-        bool is_finalized = false;
+        std::atomic<bool> is_active{true};
+        std::atomic<bool> is_finalized{false};
         std::string error_message;
 
         // TOON assembly state
         nlohmann::json toon_builder;
         std::vector<ToolCall> accumulated_tool_calls;
         std::string content_accumulator;
+
+        // Per-stream mutex for thread-safe access to non-atomic members
+        mutable std::mutex context_mutex;
     };
 
     /**

@@ -16,8 +16,13 @@ namespace aimux {
 namespace prettifier {
 
 // SyntheticFormatter implementation
-SyntheticFormatter::SyntheticFormatter()
-    : rng_(rd_())
+std::string SyntheticFormatter::get_default_model() {
+    return "synthetic";
+}
+
+SyntheticFormatter::SyntheticFormatter(const std::string& model_name)
+    : model_name_(model_name.empty() ? get_default_model() : model_name)
+    , rng_(rd_())
     , error_dist_(0.0, 1.0) {
 
     baseline_time_ = std::chrono::steady_clock::now();
