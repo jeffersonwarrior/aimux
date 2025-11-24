@@ -176,6 +176,12 @@ ProcessingResult SyntheticFormatter::postprocess_response(
             return create_error_result("Input size too large (max 10MB)", "input_too_large");
         }
 
+        // Security validation: check for malicious patterns
+        if (contains_malicious_patterns(response.data)) {
+            LOG_ERROR("Malicious patterns detected in response");
+            return create_error_result("Content contains malicious patterns", "security_violation");
+        }
+
         ProcessingResult result;
         result.success = true;
         result.output_format = "toon";
@@ -1073,6 +1079,42 @@ nlohmann::json SyntheticFormatter::analyze_performance_regression() const {
     }
 
     return analysis;
+}
+
+bool SyntheticFormatter::contains_malicious_patterns(const std::string& content) const {
+    std::vector<std::regex> malicious_patterns = {
+        // XSS patterns
+        std::regex(R"(<script[^>]*>)", std::regex::icase),
+        std::regex(R"(javascript\s*:)", std::regex::icase),
+        std::regex(R"(onerror\s*=)", std::regex::icase),
+        std::regex(R"(onload\s*=)", std::regex::icase),
+        std::regex(R"(</script>)", std::regex::icase),
+
+        // Code execution patterns
+        std::regex(R"(eval\s*\()", std::regex::icase),
+        std::regex(R"(system\s*\()", std::regex::icase),
+        std::regex(R"(exec\s*\()", std::regex::icase),
+
+        // SQL injection patterns
+        std::regex(R"('\s+OR\s+'1'\s*=\s*'1)", std::regex::icase),
+        std::regex(R"("\s+OR\s+"1"\s*=\s*"1)", std::regex::icase),
+        std::regex(R"(;\s*DROP\s+TABLE)", std::regex::icase),
+        std::regex(R"(UNION\s+SELECT)", std::regex::icase),
+
+        // Path traversal patterns
+        std::regex(R"(\.\./)", std::regex::icase),
+        std::regex(R"(\.\.[\\\/])", std::regex::icase),
+        std::regex(R"(/etc/passwd)", std::regex::icase),
+        std::regex(R"(c:\\windows)", std::regex::icase)
+    };
+
+    for (const auto& pattern : malicious_patterns) {
+        if (std::regex_search(content, pattern)) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 // Factory function for plugin registration

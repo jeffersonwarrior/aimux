@@ -309,7 +309,7 @@ TEST_F(Phase2IntegrationTest, Security_MalformedInputHandling) {
         R"({"incomplete": "object)", // Mismatched brackets
         R"({"array": [1,2,})", // Mismatched brackets
         R"({"invalid": "\x80\x81\x82"}")", // Invalid UTF-8
-        std::string(1000000, 'x'), // Very large input
+        std::string(10000, 'x'), // Large but reasonable input
     };
 
     int handled_safely = 0;

@@ -523,6 +523,20 @@ private:
      * @return Performance regression analysis
      */
     nlohmann::json analyze_performance_regression() const;
+
+    /**
+     * @brief Check for malicious patterns in content
+     *
+     * Security validation to detect and block:
+     * - XSS (Cross-Site Scripting) patterns
+     * - SQL injection attempts
+     * - Path traversal attempts
+     * - Code execution patterns
+     *
+     * @param content Content to check
+     * @return True if malicious patterns found, false otherwise
+     */
+    bool contains_malicious_patterns(const std::string& content) const;
 };
 
 } // namespace prettifier

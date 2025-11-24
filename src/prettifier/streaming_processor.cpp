@@ -128,6 +128,9 @@ std::future<bool> StreamingProcessor::process_chunk(
     task.is_final = is_final;
     task.timestamp = std::chrono::steady_clock::now();
 
+    // Get future BEFORE moving task into queue
+    auto future = task.completion_promise.get_future();
+
     {
         std::unique_lock<std::mutex> lock(queue_mutex_);
         task_queue_.push(std::move(task));
@@ -135,8 +138,6 @@ std::future<bool> StreamingProcessor::process_chunk(
 
     queue_cv_.notify_one();
 
-    // Return a future that will be completed when the task is processed
-    auto future = task_queue_.back().completion_promise.get_future();
     return future;
 }
 

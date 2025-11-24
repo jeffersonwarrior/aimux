@@ -455,18 +455,24 @@ std::optional<ToolCall> ToolCallExtractorPlugin::parse_tool_call_from_json(const
         if (json_obj.contains("function")) {
             // OpenAI format
             const auto& func = json_obj["function"];
+            std::string raw_args = func.value("arguments", "");
+            std::string sanitized_args = sanitize_tool_arguments(raw_args);
             tool.name = func.value("name", "");
-            tool.parameters = nlohmann::json{{"arguments", func.value("arguments", "")}};
+            tool.parameters = nlohmann::json{{"arguments", sanitized_args}};
             tool.id = json_obj.value("id", generate_call_id());
         } else if (json_obj.contains("name")) {
             // Simple format
+            std::string raw_args = json_obj.value("arguments", json_obj.value("input", ""));
+            std::string sanitized_args = sanitize_tool_arguments(raw_args);
             tool.name = json_obj["name"];
-            tool.parameters = nlohmann::json{{"arguments", json_obj.value("arguments", json_obj.value("input", ""))}};
+            tool.parameters = nlohmann::json{{"arguments", sanitized_args}};
             tool.id = json_obj.value("id", generate_call_id());
         } else if (json_obj.contains("tool")) {
             // Tool format
+            std::string raw_args = json_obj.value("args", "");
+            std::string sanitized_args = sanitize_tool_arguments(raw_args);
             tool.name = json_obj["tool"];
-            tool.parameters = nlohmann::json{{"args", json_obj.value("args", "")}};
+            tool.parameters = nlohmann::json{{"args", sanitized_args}};
             tool.id = json_obj.value("id", generate_call_id());
         } else {
             return std::nullopt;
@@ -523,11 +529,29 @@ bool ToolCallExtractorPlugin::validate_tool_call(const ToolCall& tool_call) cons
 
 bool ToolCallExtractorPlugin::contains_malicious_patterns(const std::string& content) const {
     std::vector<std::regex> malicious_patterns = {
+        // XSS patterns
         std::regex(R"(<script[^>]*>)", std::regex::icase),
         std::regex(R"(javascript\s*:)", std::regex::icase),
+        std::regex(R"(onerror\s*=)", std::regex::icase),
+        std::regex(R"(onload\s*=)", std::regex::icase),
+        std::regex(R"(</script>)", std::regex::icase),
+
+        // Code execution patterns
         std::regex(R"(eval\s*\()", std::regex::icase),
         std::regex(R"(system\s*\()", std::regex::icase),
-        std::regex(R"(exec\s*\()", std::regex::icase)
+        std::regex(R"(exec\s*\()", std::regex::icase),
+
+        // SQL injection patterns
+        std::regex(R"('\s+OR\s+'1'\s*=\s*'1)", std::regex::icase),
+        std::regex(R"("\s+OR\s+"1"\s*=\s*"1)", std::regex::icase),
+        std::regex(R"(;\s*DROP\s+TABLE)", std::regex::icase),
+        std::regex(R"(UNION\s+SELECT)", std::regex::icase),
+
+        // Path traversal patterns
+        std::regex(R"(\.\./)", std::regex::icase),
+        std::regex(R"(\.\.[\\\/])", std::regex::icase),
+        std::regex(R"(/etc/passwd)", std::regex::icase),
+        std::regex(R"(c:\\windows)", std::regex::icase)
     };
 
     for (const auto& pattern : malicious_patterns) {
@@ -559,11 +583,22 @@ bool ToolCallExtractorPlugin::is_valid_tool_name(const std::string& tool_name) c
 std::string ToolCallExtractorPlugin::sanitize_tool_arguments(const std::string& arguments) const {
     std::string sanitized = arguments;
 
-    // Remove or escape dangerous elements
-    sanitized = std::regex_replace(sanitized,
-        std::regex(R"(<script[^>]*>)", std::regex::icase), "&lt;script&gt;");
-    sanitized = std::regex_replace(sanitized,
-        std::regex(R"(</script>)", std::regex::icase), "&lt;/script&gt;");
+    // XSS escaping - HTML entities
+    sanitized = std::regex_replace(sanitized, std::regex("<"), "&lt;");
+    sanitized = std::regex_replace(sanitized, std::regex(">"), "&gt;");
+    sanitized = std::regex_replace(sanitized, std::regex(R"(")", std::regex::icase), "&quot;");
+    sanitized = std::regex_replace(sanitized, std::regex("'"), "&#39;");
+
+    // SQL injection - escape single and double quotes
+    // This is already handled by HTML entity escaping above, but add explicit SQL safeguards
+    if (std::regex_search(arguments, std::regex(R"('\s+OR\s+')", std::regex::icase))) {
+        return ""; // Block suspicious SQL patterns entirely
+    }
+
+    // Path traversal - block directory traversal attempts
+    if (std::regex_search(arguments, std::regex(R"(\.\./)", std::regex::icase))) {
+        return ""; // Block path traversal
+    }
 
     return sanitized;
 }
