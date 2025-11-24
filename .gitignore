@@ -22,8 +22,13 @@ yarn-error.log*
 # Archives (deprecated code)
 /archives/
 
-# Documentation - Only VERSION2.1.TODO.md and Audit-2.1.md tracked
+# Documentation - Track key reports and plans
 *.md
 !VERSION2.1.TODO.md
 !Audit-2.1.md
 !README.md
+!PHASE4_REMEDIATION_REPORT.md
+!EXECUTION_SUMMARY.md
+!PHASE1_COMPLETION_REPORT.md
+!PHASE2_COMPLETION_REPORT.md
+!PHASE4_STATUS.md
