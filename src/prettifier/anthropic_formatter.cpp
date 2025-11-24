@@ -182,8 +182,13 @@ ProcessingResult AnthropicFormatter::postprocess_response(
         // Clean content while preserving structure
         std::string cleaned_content = clean_claude_content(response.data);
 
-        // Extract XML tool calls
-        std::vector<ToolCall> tool_calls = extract_claude_xml_tool_calls(cleaned_content);
+        // Try JSON tool_use extraction first (Claude v3.5+ format)
+        std::vector<ToolCall> tool_calls = extract_claude_json_tool_uses(response.data);
+
+        // Fall back to XML extraction if no JSON tool_use blocks found (older Claude format)
+        if (tool_calls.empty()) {
+            tool_calls = extract_claude_xml_tool_calls(cleaned_content);
+        }
 
         // Extract thinking blocks and reasoning
         auto [content_without_thinking, reasoning_content] = extract_thinking_blocks(cleaned_content);
@@ -1030,6 +1035,165 @@ bool AnthropicFormatter::validate_claude_tool_call(const ToolCall& tool_call) co
 
     // Additional validation could be added here based on tool schemas
     return true;
+}
+
+std::vector<ToolCall> AnthropicFormatter::extract_claude_json_tool_uses(const std::string& content) const {
+    std::vector<ToolCall> tool_calls;
+
+    try {
+        // Try to parse content as JSON - this handles API response format
+        nlohmann::json response_json;
+
+        // First, try to parse the entire content as JSON (v3.5+ format with content array)
+        try {
+            response_json = nlohmann::json::parse(content);
+        } catch (...) {
+            // If not valid JSON, try to extract a JSON object from the content
+            // This handles cases where content has surrounding text
+            std::string::size_type start = content.find('{');
+            std::string::size_type end = content.rfind('}');
+
+            if (start != std::string::npos && end != std::string::npos && start < end) {
+                std::string json_str = content.substr(start, end - start + 1);
+                try {
+                    response_json = nlohmann::json::parse(json_str);
+                } catch (...) {
+                    LOG_DEBUG("Failed to parse JSON from content");
+                    return tool_calls;
+                }
+            } else {
+                LOG_DEBUG("No JSON object found in content");
+                return tool_calls;
+            }
+        }
+
+        // Check for content array (Claude v3.5+ format)
+        if (response_json.contains("content") && response_json["content"].is_array()) {
+            const auto& content_array = response_json["content"];
+
+            for (const auto& content_item : content_array) {
+                // Look for tool_use type blocks
+                if (content_item.is_object() &&
+                    content_item.contains("type") &&
+                    content_item["type"].is_string() &&
+                    content_item["type"].get<std::string>() == "tool_use") {
+
+                    ToolCall call;
+                    call.status = "completed";
+                    call.timestamp = std::chrono::system_clock::now();
+
+                    // Extract tool name
+                    if (content_item.contains("name") && content_item["name"].is_string()) {
+                        call.name = content_item["name"].get<std::string>();
+                    } else {
+                        LOG_DEBUG("Tool use block missing 'name' field");
+                        continue;
+                    }
+
+                    // Extract tool ID if present
+                    if (content_item.contains("id") && content_item["id"].is_string()) {
+                        call.id = content_item["id"].get<std::string>();
+                    }
+
+                    // Extract parameters from input field
+                    if (content_item.contains("input")) {
+                        try {
+                            // Input can be an object or a string representation of JSON
+                            if (content_item["input"].is_object()) {
+                                call.parameters = content_item["input"];
+                            } else if (content_item["input"].is_string()) {
+                                // Try to parse string as JSON
+                                try {
+                                    call.parameters = nlohmann::json::parse(content_item["input"].get<std::string>());
+                                } catch (...) {
+                                    // If not JSON, store as a single "value" parameter
+                                    call.parameters = nlohmann::json::object();
+                                    call.parameters["value"] = content_item["input"].get<std::string>();
+                                }
+                            } else {
+                                call.parameters = nlohmann::json::object();
+                            }
+                        } catch (const std::exception& e) {
+                            LOG_DEBUG("Failed to parse tool input: %s", e.what());
+                            call.parameters = nlohmann::json::object();
+                        }
+                    } else {
+                        // No input field, create empty parameters object
+                        call.parameters = nlohmann::json::object();
+                    }
+
+                    // Validate and add the tool call
+                    if (validate_claude_tool_call(call)) {
+                        tool_calls.push_back(call);
+                        LOG_DEBUG("Extracted JSON tool_use: %s (id: %s)", call.name.c_str(), call.id.c_str());
+                    }
+                }
+            }
+        }
+
+        // Also check for direct tool_use field at root level (alternative format)
+        if (tool_calls.empty() && response_json.contains("tool_use") && response_json["tool_use"].is_array()) {
+            const auto& tool_uses = response_json["tool_use"];
+
+            for (const auto& tool_use : tool_uses) {
+                if (tool_use.is_object()) {
+                    ToolCall call;
+                    call.status = "completed";
+                    call.timestamp = std::chrono::system_clock::now();
+
+                    if (tool_use.contains("name") && tool_use["name"].is_string()) {
+                        call.name = tool_use["name"].get<std::string>();
+                    } else {
+                        continue;
+                    }
+
+                    if (tool_use.contains("id") && tool_use["id"].is_string()) {
+                        call.id = tool_use["id"].get<std::string>();
+                    }
+
+                    if (tool_use.contains("input")) {
+                        try {
+                            if (tool_use["input"].is_object()) {
+                                call.parameters = tool_use["input"];
+                            } else if (tool_use["input"].is_string()) {
+                                try {
+                                    call.parameters = nlohmann::json::parse(tool_use["input"].get<std::string>());
+                                } catch (...) {
+                                    call.parameters = nlohmann::json::object();
+                                    call.parameters["value"] = tool_use["input"].get<std::string>();
+                                }
+                            } else {
+                                call.parameters = nlohmann::json::object();
+                            }
+                        } catch (const std::exception& e) {
+                            LOG_DEBUG("Failed to parse tool input: %s", e.what());
+                            call.parameters = nlohmann::json::object();
+                        }
+                    } else {
+                        call.parameters = nlohmann::json::object();
+                    }
+
+                    if (validate_claude_tool_call(call)) {
+                        tool_calls.push_back(call);
+                        LOG_DEBUG("Extracted JSON tool_use (alt format): %s", call.name.c_str());
+                    }
+                }
+            }
+        }
+
+        if (!tool_calls.empty()) {
+            LOG_DEBUG("Extracted %zu JSON tool_use blocks", tool_calls.size());
+        }
+
+        // Update metrics
+        const_cast<std::atomic<uint64_t>&>(xml_tool_calls_extracted_).fetch_add(tool_calls.size());
+
+    } catch (const std::exception& e) {
+        LOG_DEBUG("JSON tool_use extraction failed: %s", e.what());
+        const_cast<std::atomic<uint64_t>&>(xml_validation_errors_).fetch_add(1);
+    }
+
+    return tool_calls;
 }
 
 // Factory function for plugin registration

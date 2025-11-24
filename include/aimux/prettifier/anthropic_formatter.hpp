@@ -340,6 +340,20 @@ private:
     std::vector<ToolCall> extract_claude_xml_tool_calls(const std::string& content) const;
 
     /**
+     * @brief Extract JSON tool_use blocks from Claude response (v3.5+ format)
+     *
+     * Parses Claude's modern JSON-based tool use format:
+     * - Content array parsing
+     * - tool_use block extraction from content objects
+     * - Parameter extraction from tool_use.input JSON
+     * - ID mapping and status handling
+     *
+     * @param content Content containing tool_use blocks in JSON format
+     * @return Vector of extracted tool calls
+     */
+    std::vector<ToolCall> extract_claude_json_tool_uses(const std::string& content) const;
+
+    /**
      * @brief Extract and process thinking blocks
      *
      * Extracts Claude's thinking/reasoning blocks:
