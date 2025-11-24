@@ -959,6 +959,33 @@ target_compile_options(phase3_prettifier_pipeline_test PRIVATE
     $<$<CXX_COMPILER_ID:GNU>:-Wall -Wextra -Wno-unused-parameter>
 )
 
+# Create Real Provider API Integration Test (v2.1 Production Validation)
+add_executable(real_provider_api_integration_test
+    test/real_provider_api_integration_test.cpp
+    ${PRETTIFIER_SOURCES}
+    ${LOGGING_SOURCES}
+)
+
+target_link_libraries(real_provider_api_integration_test
+    nlohmann_json::nlohmann_json
+    CURL::libcurl
+    OpenSSL::SSL
+    OpenSSL::Crypto
+    Threads::Threads
+    GTest::gtest
+    GTest::gmock
+)
+
+target_include_directories(real_provider_api_integration_test PRIVATE
+    include
+    ${GTEST_INCLUDE_DIRS}
+)
+
+target_compile_options(real_provider_api_integration_test PRIVATE
+    $<$<CXX_COMPILER_ID:Clang>:-Wall -Wextra -Wno-unused-parameter>
+    $<$<CXX_COMPILER_ID:GNU>:-Wall -Wextra -Wno-unused-parameter>
+)
+
 # Test targets for easy execution
 add_custom_target(test_unit
     COMMAND unit_tests
@@ -993,6 +1020,13 @@ add_custom_target(test_phase3
     DEPENDS phase3_prettifier_pipeline_test
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
     COMMENT "Running Phase 3.1 prettifier pipeline integration tests"
+)
+
+add_custom_target(test_real_api
+    COMMAND real_provider_api_integration_test
+    DEPENDS real_provider_api_integration_test
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+    COMMENT "Running Real Provider API Integration Tests (v2.1 Production Validation)"
 )
 
 add_custom_target(test_advanced
